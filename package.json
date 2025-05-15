@@ -1,0 +1,12 @@
+{
+  "name": "wa-helper-bot",
+  "version": "1.0.0",
+  "description": "Lucho for my friends",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
