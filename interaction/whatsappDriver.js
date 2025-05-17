@@ -2,6 +2,8 @@
 const { Client } = require('whatsapp-web.js'); // TODO #1: Add LocalAuth for session persistence (why do we need session persistence?)
 const qrcode = require('qrcode-terminal');
 
+// TODO #3: Where do we define the datastructure to move info around? 
+
 class WhatsappDriver {
     /**
      * @param {object} applicationHandler - An object implementing the IncomingMessageHandler interface.
