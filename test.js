@@ -15,11 +15,19 @@ client.on('ready', () => {
     console.log('Client is ready!');
 });
 
-client.on('message_create', async (msg) => { // What's differnece between message and message_create?
+client.on('message', async (msg) => { // What's differnece between message and message_create?
     const chat = await msg.getChat();
     console.log("Message from ", chat.name, ": ", msg.body);
     console.log("Is group chat: ", chat.isGroup);
-    console.log("chat.getContact()", chat.getContact(), "msg.getContact()", msg.getContact());
+    console.log("msg.from", msg.from);
+
+    // Await both contact promises
+    const msgMentions = await msg.getMentions();
+    const chatContact = await chat.getContact();
+    const msgContact = await msg.getContact();
+    console.log("chat.getContact()", chatContact, "msg.getContact()", msgContact);
+    console.log("msgMentions", msgMentions);
+
     if (msg.body === '!ping') {
         // send back "pong" to the chat the message was sent in
         client.sendMessage(msg.from, 'pong');
@@ -28,4 +36,24 @@ client.on('message_create', async (msg) => { // What's differnece between messag
 });
 
 // Initialize the client
-client.initialize(); 
+client.initialize();
+
+
+//
+// const chat = await msg.getChat();
+// const msgMentions = await msg.getMentions();
+
+// // TODO: EVENTUALLY here we create a chat class or access an existing one. 
+// if (chat.isGroup && chat.name == CHAT_NAME && msgMentions == BOT_NAME) {
+
+//     // Create a structured message object for the application layer
+//     const chatContact = await chat.getContact();
+//     const msgContact = await msg.getContact();
+//     const structuredMessage = createStructuredMessage(msg, chat, chatContact, msgContact);
+
+//     // Pass the structured message to the application handler
+//     const response = await this.applicationHandler.handleMessage(structuredMessage);
+//     if (response) {
+//         await this.sendMessage(msg.from, response);
+//     }
+// }

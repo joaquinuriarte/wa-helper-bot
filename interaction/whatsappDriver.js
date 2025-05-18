@@ -1,8 +1,8 @@
 // interaction/whatsappDriver.js
-const { Client } = require('whatsapp-web.js'); // TODO #1: Add LocalAuth for session persistence (why do we need session persistence?)
+const { Client } = require('whatsapp-web.js'); // TODO: Add LocalAuth for session persistence (why do we need session persistence?). To not scan QR code on every restart. 
 const qrcode = require('qrcode-terminal');
-
-// TODO #3: Where do we define the datastructure to move info around? 
+const { createStructuredMessage } = require('../datastructures/message');
+const { BOT_NAME } = "Lucho"; // TODO: Best if we use our ID instead?
 
 class WhatsappDriver {
     /**
@@ -14,7 +14,7 @@ class WhatsappDriver {
         }
         this.applicationHandler = applicationHandler;
 
-        // TODO #1: Add LocalAuth here to save session state
+        // TODO: Add LocalAuth here to save session state
         this.client = new Client({
             //authStrategy: new LocalAuth(),
             // Depending on your environment, you might need puppeteer options
@@ -31,63 +31,48 @@ class WhatsappDriver {
         this.client.on('qr', (qr) => {
             console.log('QR RECEIVED', qr);
             qrcode.generate(qr, { small: true });
-            // Instructions for the user to scan the QR code
-            console.log('Scan the QR code above with your WhatsApp app.');
         });
 
-        this.client.on('authenticated', () => {
-            console.log('AUTHENTICATED');
-        });
+        // this.client.on('authenticated', () => {
+        //     console.log('AUTHENTICATED');
+        // });
 
-        this.client.on('auth_failure', msg => {
-            // Fired if session restore fails
-            console.error('AUTHENTICATION FAILURE', msg);
-        });
+        // this.client.on('auth_failure', msg => {
+        //     // Fired if session restore fails
+        //     console.error('AUTHENTICATION FAILURE', msg);
+        // });
 
         this.client.on('ready', () => {
             console.log('Client is ready!');
-            // You could potentially notify the application layer that the client is ready here
+            // TODO: You could potentially notify the application layer that the client is ready here
             // this.applicationHandler.handleClientReady();
         });
 
-        // message_create is triggered for both incoming and outgoing messages
-        this.client.on('message_create', async (msg) => {
-            // Optional: Ignore messages sent by the bot itself
-            if (msg.fromMe) {
-                console.log('Ignoring message created by myself');
-                return;
+        // message is triggered for only incoming messages
+        this.client.on('message', async (msg) => {
+            try {
+                // Identify if bot was summoned
+                const msgMentions = await msg.getMentions();
+                if (msgMentions == BOT_NAME) {
+                    // Create structured message object for application layer
+                    const chat = await msg.getChat();
+                    const chatContact = await chat.getContact();
+                    const msgContact = await msg.getContact();
+                    const structuredMessage = createStructuredMessage(msg, chat, chatContact, msgContact);
+                    // Pass the structured message to the application handler
+                    const response = await this.applicationHandler.handleMessage(structuredMessage);
+                    if (response) {
+                        await this.sendMessage(msg.from, response);
+                    }
+                }
+            } catch (error) {
+                console.error('Error handling message:', error);
             }
-
-            const chat = await msg.getChat();
-
-            console.log("Raw message_create event:", {
-                from: msg.from,
-                to: msg.to,
-                body: msg.body,
-                isGroup: chat.isGroup,
-                chatName: chat.name,
-                type: msg.type, // e.g., chat, image, video
-                hasMedia: msg.hasMedia,
-                timestamp: msg.timestamp
-            });
-
-            // Create a structured message object for the application layer
-            const structuredMessage = {
-                chatId: msg.from, // In whatsapp-web.js, 'from' is the chat ID for incoming messages
-                senderId: msg.author || msg.from, // msg.author for groups, msg.from for direct
-                body: msg.body,
-                isGroup: chat.isGroup,
-                chatName: chat.isGroup ? chat.name : 'Direct Chat', // Provide chat name for context
-                // Add other properties as needed, e.g., type, media info
-            };
-
-            // Pass the structured message to the application handler
-            this.applicationHandler.handleMessage(structuredMessage);
         });
 
         this.client.on('disconnected', (reason) => {
             console.log('Client was disconnected', reason);
-            // You might want to try and re-initialize here or notify the application layer
+            // TODO: You might want to try and re-initialize here or notify the application layer
             // this.client.initialize();
         });
     }
@@ -101,7 +86,6 @@ class WhatsappDriver {
     }
 
 
-    // TODO #2: Where is the MessageSender interface specified? Interaction would need to keep mapping of chatId to chat object.
     /**
      * Sends a message to a specific chat.
      * Implements the MessageSender interface method.
