@@ -3,41 +3,42 @@
  * @typedef {import('./interfaces/handlers').UserHandler} UserHandler
  */
 
+const TestHandler = require('./handlers/chatHandlers/testHandler');
+
 /**
  * Factory class for creating chat and user handlers
  */
 class HandlerFactory {
-    constructor() {
-        // Initialize any necessary dependencies here
+    /**
+     * @param {import('./interfaces/handlers').MessageSender} messageSender 
+     * @param {import('./interfaces/handlers').BotLogic} botLogic 
+     */
+    constructor(messageSender, botLogic) {
+        this.messageSender = messageSender;
+        this.botLogic = botLogic;
     }
 
     /**
-     * Creates or retrieves a chat handler for a given chat ID
-     * @param {string} chatId - The ID of the chat
-     * @returns {ChatHandler|"DNE"} The chat handler or "DNE" if not found
+     * Creates a chat handler for the specified chat ID
+     * @param {string} chatId 
+     * @returns {import('./interfaces/handlers').ChatHandler | "DNE"}
      */
     createChatHandler(chatId) {
-        if (chatId === "1234567890@g.us") {
-            return new TestGroupChatHandler();
-        } else if (chatId === "9876543210@g.us") {
-            return new AnotherGroupChatHandler();
+        // For now, we'll create a TestHandler for all chats
+        // TODO: Add logic to create different handlers based on chatId
+        if (chatId == "Test") {
+            return new TestHandler(this.messageSender, this.botLogic);
         }
-        // Add more chat handlers as needed
         return "DNE";
     }
 
     /**
-     * Creates or retrieves a user handler for a given user ID
-     * @param {string} userId - The ID of the user
-     * @returns {UserHandler|"DNE"} The user handler or "DNE" if not found
+     * Creates a user handler for the specified user ID
+     * @param {string} userId 
+     * @returns {import('./interfaces/handlers').UserHandler | "DNE"}
      */
     createUserHandler(userId) {
-        if (userId === "111222333@c.us") {
-            return new AdminUserHandler();
-        } else if (userId === "444555666@c.us") {
-            return new RegularUserHandler();
-        }
-        // Add more user handlers as needed
+        // TODO: Implement user handler creation
         return "DNE";
     }
 }
