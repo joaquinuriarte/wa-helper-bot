@@ -61,8 +61,10 @@ class BotLogic extends IBotLogic {
         // Get the appropriate handler for this chat ID
         let handler;
         if (message.isGroup) {
+            console.log("Verifying if group chat");
             handler = this.handlerFactory.createChatHandler(message.chatId);
         } else {
+            console.log("Verifying if user chat");
             handler = this.handlerFactory.createUserHandler(message.chatId);
         }
 
