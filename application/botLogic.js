@@ -1,5 +1,9 @@
 // application/botLogic.js
 
+// Interfaces
+const IBotLogic = require('../interfaces/botLogic');
+const IHandlerFactory = require('../interfaces/handlerFactory');
+
 /**
  * @typedef {import('../datastructures/message').StructuredMessage} StructuredMessage
  */
@@ -7,11 +11,6 @@
 /**
  * @typedef {import('./interfaces/handlers').ChatHandler} ChatHandler
  * @typedef {import('./interfaces/handlers').UserHandler} UserHandler
- */
-
-/**
- * @typedef {object} MessageSender - Conceptual interface for sending messages.
- * @property {function(string, string): Promise<void>} sendMessage - Method to send a message.
  */
 
 /**
@@ -26,21 +25,23 @@
  * and routes them to the appropriate ChatHandler based on chat ID.
  * It also contains the core, chat-agnostic command processing logic.
  */
-class BotLogic {
+class BotLogic extends IBotLogic {
+    constructor() {
+        super();
+        this.handlerFactory = null;
+        console.log('BotLogic initialized');
+    }
+
     /**
-     * @param {MessageSender} messageSender - An object implementing the MessageSender interface (WhatsappDriver instance).
-     * @param {import('./handlerFactory').HandlerFactory} handlerFactory - Factory for creating chat and user handlers.
+     * Sets the handler factory for this BotLogic instance
+     * @param {import('./interfaces/handlerFactory').IHandlerFactory} handlerFactory 
      */
-    constructor(messageSender, handlerFactory) {
-        if (!messageSender || typeof messageSender.sendMessage !== 'function') {
-            throw new Error("messageSender must implement the MessageSender interface with a 'sendMessage' method.");
+    setHandlerFactory(handlerFactory) {
+        if (!(handlerFactory instanceof IHandlerFactory)) {
+            throw new Error("handlerFactory must implement IHandlerFactory");
         }
-        if (!handlerFactory || typeof handlerFactory.createChatHandler !== 'function' || typeof handlerFactory.createUserHandler !== 'function') {
-            throw new Error("handlerFactory must implement the HandlerFactory interface");
-        }
-        this.messageSender = messageSender;
         this.handlerFactory = handlerFactory;
-        console.log('BotLogic initialized with handler factory');
+        console.log('Handler factory set on BotLogic');
     }
 
     /**
@@ -51,13 +52,18 @@ class BotLogic {
      * @returns {Promise<void>} - This method does not return a response directly; the ChatHandler handles sending.
      */
     async handleMessage(message) {
+        if (!this.handlerFactory) {
+            throw new Error("Handler factory not set on BotLogic");
+        }
+
         console.log(`BotLogic received message for routing from ${message.chatName} (${message.chatId}): "${message.body}"`);
 
         // Get the appropriate handler for this chat ID
+        let handler;
         if (message.isGroup) {
-            const handler = this.handlerFactory.createChatHandler(message.chatId);
+            handler = this.handlerFactory.createChatHandler(message.chatId);
         } else {
-            const handler = this.handlerFactory.createUserHandler(message.chatId);
+            handler = this.handlerFactory.createUserHandler(message.chatId);
         }
 
         if (handler !== "DNE") {
@@ -70,8 +76,6 @@ class BotLogic {
             }
         } else {
             console.log(`No specific handler registered for chat ID: ${message.chatId}. Ignoring message after mention check.`);
-            // Optional: Implement default behavior for mentioned messages in unhandled chats
-            // Example: await this.messageSender.sendMessage(message.chatId, "Hello! I don't have specific logic for this chat yet, but I heard you mention me!");
         }
     }
 

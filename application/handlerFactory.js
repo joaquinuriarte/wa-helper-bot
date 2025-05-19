@@ -1,3 +1,8 @@
+// handlerFactory.js
+const IHandlerFactory = require('../interfaces/handlerFactory');
+const IMessageSender = require('../interfaces/messageSender');
+const IBotLogic = require('../interfaces/botLogic');
+
 /**
  * @typedef {import('./interfaces/handlers').ChatHandler} ChatHandler
  * @typedef {import('./interfaces/handlers').UserHandler} UserHandler
@@ -8,12 +13,19 @@ const TestHandler = require('./handlers/chatHandlers/testHandler');
 /**
  * Factory class for creating chat and user handlers
  */
-class HandlerFactory {
+class HandlerFactory extends IHandlerFactory {
     /**
-     * @param {import('./interfaces/handlers').MessageSender} messageSender 
-     * @param {import('./interfaces/handlers').BotLogic} botLogic 
+     * @param {object} IMessageSender 
+     * @param {object} IBotLogic 
      */
     constructor(messageSender, botLogic) {
+        super();
+        if (!(messageSender instanceof IMessageSender)) {
+            throw new Error("messageSender must implement IMessageSender");
+        }
+        if (!(botLogic instanceof IBotLogic)) {
+            throw new Error("botLogic must implement IBotLogic");
+        }
         this.messageSender = messageSender;
         this.botLogic = botLogic;
     }
@@ -24,9 +36,10 @@ class HandlerFactory {
      * @returns {import('./interfaces/handlers').ChatHandler | "DNE"}
      */
     createChatHandler(chatId) {
-        // For now, we'll create a TestHandler for all chats
-        // TODO: Add logic to create different handlers based on chatId
-        if (chatId == "Test") {
+        console.log("Creating chat handler for chatId on factory: ", chatId);
+        // For now, we'll create a TestHandler for our test group
+        // This id corresponds to the group chat id of the test group i have with Irene
+        if (chatId === "120363398524431988@g.us") {
             return new TestHandler(this.messageSender, this.botLogic);
         }
         return "DNE";

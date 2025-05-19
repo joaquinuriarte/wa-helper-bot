@@ -2,17 +2,22 @@
 const { Client } = require('whatsapp-web.js'); // TODO: Add LocalAuth for session persistence (why do we need session persistence?). To not scan QR code on every restart. 
 const qrcode = require('qrcode-terminal');
 const { createStructuredMessage } = require('../datastructures/message');
-const { BOT_NAME } = "Lucho"; // TODO: Best if we use our ID instead?
+const BOT_ID = "17872949783";
+// interfaces
+const IMessageSender = require('../interfaces/messageSender');
+const IBotLogic = require('../interfaces/botLogic');
 
-class WhatsappDriver {
+
+class WhatsappDriver extends IMessageSender {
     /**
-     * @param {object} applicationHandler - An object implementing the IncomingMessageHandler interface.
+     * @param {object} IBotLogic - An object implementing the IncomingMessageHandler interface.
      */
-    constructor(applicationHandler) {
-        if (!applicationHandler || typeof applicationHandler.handleMessage !== 'function') {
-            throw new Error("applicationHandler must implement the IncomingMessageHandler interface with a 'handleMessage' method.");
+    constructor(botLogic) {
+        super();
+        if (!(botLogic instanceof IBotLogic)) {
+            throw new Error("botLogic must implement IBotLogic");
         }
-        this.applicationHandler = applicationHandler;
+        this.botLogic = botLogic;
 
         // TODO: Add LocalAuth here to save session state
         this.client = new Client({
@@ -50,20 +55,21 @@ class WhatsappDriver {
 
         // message is triggered for only incoming messages
         this.client.on('message', async (msg) => {
+            console.log('Message received: ', msg.body);
             try {
                 // Identify if bot was summoned
                 const msgMentions = await msg.getMentions();
-                if (msgMentions == BOT_NAME) {
+                console.log('Mentions:', msgMentions.map(m => m.id));
+                const isBotMentioned = msgMentions.some(mention => mention.id.user === BOT_ID);
+                console.log('Is bot mentioned: ', isBotMentioned);
+                if (isBotMentioned) {
                     // Create structured message object for application layer
                     const chat = await msg.getChat();
                     const chatContact = await chat.getContact();
                     const msgContact = await msg.getContact();
                     const structuredMessage = createStructuredMessage(msg, chat, chatContact, msgContact);
                     // Pass the structured message to the application handler
-                    const response = await this.applicationHandler.handleMessage(structuredMessage);
-                    if (response) {
-                        await this.sendMessage(msg.from, response);
-                    }
+                    await this.botLogic.handleMessage(structuredMessage);
                 }
             } catch (error) {
                 console.error('Error handling message:', error);
