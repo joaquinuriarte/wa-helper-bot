@@ -17,34 +17,6 @@ const GoogleCalendarSessionManager = require('./infrastructure/calendar/sessionM
 const BOT_ID = "17872949783"; // Bot ID for WhatsApp Abuela Home Number
 const credentials = require('env/lucho-460500-cdb4b1f2ffe0.json'); // Google Calendar credentials
 
-// ============= INTERACTION LAYER SETUP =============
-// Create and configure WhatsApp client
-const whatsappSessionManager = new WhatsappSessionManager();
-const whatsappClient = await whatsappSessionManager.createClient();
-const whatsappDriver = new WhatsappDriver(whatsappClient, BOT_ID);
-
-// ============= APPLICATION LAYER SETUP =============
-// Create and configure application services
-const handlerFactory = new HandlerFactory(whatsappDriver); // TODO: pass in domain logic
-const botLogic = new BotLogic(handlerFactory);
-
-// Connect bot logic to WhatsApp driver
-whatsappDriver.setBot(botLogic);
-
-// ============= INFRASTRUCTURE LAYER SETUP =============
-// Create and configure calendar infrastructure
-const calendarClient = GoogleCalendarSessionManager.createClient(credentials);
-const calendarInfra = new GoogleCalendarInfrastructure(calendarClient);
-
-// ============= DOMAIN LAYER SETUP =============
-// TODO: Create domain tools
-// TODO: Inject infrastructure plugs
-// TODO: Configure factory with domain logic
-
-// ============= INITIALIZATION =============
-// Initialize WhatsApp client
-await WhatsappSessionManager.initializeClient(whatsappClient);
-
 // ============= GRACEFUL SHUTDOWN HANDLERS =============
 process.on('SIGINT', async () => {
     console.log('SIGINT received, shutting down client...');
@@ -70,4 +42,41 @@ process.on('SIGTERM', async () => {
         }
     }
     process.exit(0);
+});
+
+// ============= MAIN FUNCTION =============
+async function main() {
+    // ============= INTERACTION LAYER SETUP =============
+    // Create and configure WhatsApp client
+    const whatsappSessionManager = new WhatsappSessionManager();
+    const whatsappClient = await whatsappSessionManager.createClient();
+    const whatsappDriver = new WhatsappDriver(whatsappClient, BOT_ID);
+
+    // ============= APPLICATION LAYER SETUP =============
+    // Create and configure application services
+    const handlerFactory = new HandlerFactory(whatsappDriver); // TODO: pass in domain logic
+    const botLogic = new BotLogic(handlerFactory);
+
+    // Connect bot logic to WhatsApp driver
+    whatsappDriver.setBot(botLogic);
+
+    // ============= INFRASTRUCTURE LAYER SETUP =============
+    // Create and configure calendar infrastructure
+    const calendarClient = GoogleCalendarSessionManager.createClient(credentials);
+    const calendarInfra = new GoogleCalendarInfrastructure(calendarClient);
+
+    // ============= DOMAIN LAYER SETUP =============
+    // TODO: Create domain tools
+    // TODO: Inject infrastructure plugs
+    // TODO: Configure factory with domain logic
+
+    // ============= INITIALIZATION =============
+    // Initialize WhatsApp client
+    await WhatsappSessionManager.initializeClient(whatsappClient);
+}
+
+// Run the main function
+main().catch(error => {
+    console.error('Error in main:', error);
+    process.exit(1);
 });
