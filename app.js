@@ -1,46 +1,51 @@
-
 // app.js
+
+// ============= IMPORTS =============
+// Interaction Layer
 const WhatsappSessionManager = require('./interaction/sessionManagers/whatsappSessionManager');
 const WhatsappDriver = require('./interaction/whatsappDriver');
+
+// Application Layer
 const BotLogic = require('./application/services/botLogic');
 const HandlerFactory = require('./application/factories/handlerFactory');
+
+// Infrastructure Layer
 const GoogleCalendarInfrastructure = require('./infrastructure/calendar/GoogleCalendarInfrastructure');
 const GoogleCalendarSessionManager = require('./infrastructure/calendar/sessionManagers/googleCalendarSessionManager');
 
+// ============= CONFIGURATION =============
+const BOT_ID = "17872949783"; // Bot ID for WhatsApp Abuela Home Number
+const credentials = require('env/lucho-460500-cdb4b1f2ffe0.json'); // Google Calendar credentials
 
-// INTERACTION PORT
-
-// Interaction Port Variables
-const BOT_ID = "17872949783";
-
-// Instances 
+// ============= INTERACTION LAYER SETUP =============
+// Create and configure WhatsApp client
 const whatsappSessionManager = new WhatsappSessionManager();
 const whatsappClient = await whatsappSessionManager.createClient();
 const whatsappDriver = new WhatsappDriver(whatsappClient, BOT_ID);
 
-// APPLICATION
-
-// Instances 
+// ============= APPLICATION LAYER SETUP =============
+// Create and configure application services
 const handlerFactory = new HandlerFactory(whatsappDriver); // TODO: pass in domain logic
 const botLogic = new BotLogic(handlerFactory);
 
-// Set the bot logic on whatsapp client
+// Connect bot logic to WhatsApp driver
 whatsappDriver.setBot(botLogic);
 
-// INFRASTRUCTURE
-const credentials = require('env/lucho-460500-cdb4b1f2ffe0.json');
+// ============= INFRASTRUCTURE LAYER SETUP =============
+// Create and configure calendar infrastructure
 const calendarClient = GoogleCalendarSessionManager.createClient(credentials);
 const calendarInfra = new GoogleCalendarInfrastructure(calendarClient);
 
-// DOMAIN LOGIC
-// Create tools? Inject infra plugs
-// give to factory?
+// ============= DOMAIN LAYER SETUP =============
+// TODO: Create domain tools
+// TODO: Inject infrastructure plugs
+// TODO: Configure factory with domain logic
 
-// Initialize whatsapp client
+// ============= INITIALIZATION =============
+// Initialize WhatsApp client
 await WhatsappSessionManager.initializeClient(whatsappClient);
 
-
-// --- Graceful Shutdown ---
+// ============= GRACEFUL SHUTDOWN HANDLERS =============
 process.on('SIGINT', async () => {
     console.log('SIGINT received, shutting down client...');
     if (whatsappClient) {
