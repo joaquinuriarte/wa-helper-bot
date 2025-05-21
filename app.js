@@ -15,7 +15,7 @@ const GoogleCalendarSessionManager = require('./infrastructure/calendar/sessionM
 
 // ============= CONFIGURATION =============
 const BOT_ID = "17872949783"; // Bot ID for WhatsApp Abuela Home Number
-const credentials = require('env/lucho-460500-cdb4b1f2ffe0.json'); // Google Calendar credentials
+const credentials = require('./env/lucho-460500-cdb4b1f2ffe0.json'); // Google Calendar credentials
 
 // ============= GRACEFUL SHUTDOWN HANDLERS =============
 process.on('SIGINT', async () => {
@@ -48,8 +48,7 @@ process.on('SIGTERM', async () => {
 async function main() {
     // ============= INTERACTION LAYER SETUP =============
     // Create and configure WhatsApp client
-    const whatsappSessionManager = new WhatsappSessionManager();
-    const whatsappClient = await whatsappSessionManager.createClient();
+    const whatsappClient = await WhatsappSessionManager.createClient();
     const whatsappDriver = new WhatsappDriver(whatsappClient, BOT_ID);
 
     // ============= APPLICATION LAYER SETUP =============
