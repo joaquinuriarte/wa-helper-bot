@@ -1,6 +1,7 @@
 // interaction/whatsappDriver.js
 const Message = require('../application/models/Message');
 const IInteractionPort = require('../application/interfaces/IInteractionPort');
+const IBot = require('../application/interfaces/IBot');
 
 /**
  * WhatsApp implementation of the interaction port
@@ -20,7 +21,22 @@ class WhatsappDriver extends IInteractionPort {
         }
         this.client = client;
         this.botId = botId;
+        this.bot = null;
         this.setupListeners();
+    }
+
+    /**
+     * Sets the bot instance that will handle messages
+     * @param {IBot} bot - The bot instance that implements IBot
+     */
+    setBot(bot) {
+        if (!bot) {
+            throw new Error("Bot instance is required");
+        }
+        if (!bot.handleMessage) {
+            throw new Error("Bot instance must implement handleMessage method");
+        }
+        this.bot = bot;
     }
 
     setupListeners() {
@@ -50,7 +66,7 @@ class WhatsappDriver extends IInteractionPort {
                         chat.isGroup ? chatContact.name : "Direct Chat"
                     );
 
-                    await this.botLogic.handleMessage(message);
+                    await this.bot.handleMessage(message);
                 }
             } catch (error) {
                 console.error('Error handling message:', error);
