@@ -1,3 +1,5 @@
+//TODO; instantiate calendar client and connect to it and feed it to infrastructure calendar implementation
+
 // app.js
 const WhatsappDriver = require('./interaction/whatsappDriver');
 const BotLogic = require('./application/botLogic');
