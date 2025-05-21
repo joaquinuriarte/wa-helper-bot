@@ -40,12 +40,6 @@ class WhatsappDriver extends IInteractionPort {
     }
 
     setupListeners() {
-        this.client.on('ready', () => {
-            console.log('Client is ready!');
-            // TODO: You could potentially notify the application layer that the client is ready here
-            // this.applicationHandler.handleClientReady();
-        });
-
         // message is triggered for only incoming messages
         this.client.on('message', async (msg) => {
             console.log('Message received: ', msg.body);
@@ -66,25 +60,16 @@ class WhatsappDriver extends IInteractionPort {
                         chat.isGroup ? chatContact.name : "Direct Chat"
                     );
 
+                    if (!this.bot) {
+                        console.log('Bot not set, message will not be handled');
+                        return;
+                    }
                     await this.bot.handleMessage(message);
                 }
             } catch (error) {
                 console.error('Error handling message:', error);
             }
         });
-
-        this.client.on('disconnected', (reason) => {
-            console.log('Client was disconnected:', reason);
-            // TODO: Implement reconnection strategy
-        });
-    }
-
-    /**
-     * Initializes the WhatsApp client
-     */
-    async initialize() {
-        console.log('Initializing WhatsApp Client...');
-        await this.client.initialize();
     }
 
     /**
@@ -102,19 +87,6 @@ class WhatsappDriver extends IInteractionPort {
             console.log(`Response sent successfully to ${message.chatId}`);
         } catch (error) {
             console.error(`Failed to send response to ${message.chatId}:`, error);
-            throw error;
-        }
-    }
-
-    /**
-     * Cleans up the WhatsApp client
-     */
-    async cleanup() {
-        try {
-            await this.client.destroy();
-            console.log('WhatsApp client cleaned up successfully');
-        } catch (error) {
-            console.error('Error cleaning up WhatsApp client:', error);
             throw error;
         }
     }
