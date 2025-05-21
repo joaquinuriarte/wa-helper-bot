@@ -1,4 +1,44 @@
 //TODO; instantiate calendar client and connect to it and feed it to infrastructure calendar implementation
+// // At the application level (e.g., in your app.js or a dependency injection container)
+// const { google } = require('googleapis');
+// const credentials = require('./env/your-credentials.json');
+// const auth = new google.auth.JWT(/* ... */);
+// const calendarClient = google.calendar({ version: 'v3', auth });
+
+// // Then create your infrastructure instance
+// const calendarInfra = new GoogleCalendarInfrastructure(calendarClient);
+
+//TODO: Instantiate whatsapp client and pass it to whatsapp driver
+// interaction/whatsappDriver.js
+// const { Client } = require('whatsapp-web.js'); // TODO: Add LocalAuth for session persistence (why do we need session persistence?). To not scan QR code on every restart. 
+// const qrcode = require('qrcode-terminal');
+// const Message = require('../application/models/Message');
+// const BOT_ID = "17872949783";
+// const IInteractionPort = require('../application/interfaces/IInteractionPort');
+
+//TODO: make a client spin up service
+// TODO: Add LocalAuth here to save session state
+// this.client = new Client({
+//     //authStrategy: new LocalAuth(),
+//     // Depending on your environment, you might need puppeteer options
+//     // For example, if running in a container:
+//     // puppeteer: {
+//     //     args: ['--no-sandbox', '--disable-setuid-sandbox']
+//     // }
+// });
+// this.client.on('qr', (qr) => {
+//     console.log('QR RECEIVED', qr);
+//     qrcode.generate(qr, { small: true });
+// });
+
+// // this.client.on('authenticated', () => {
+// //     console.log('AUTHENTICATED');
+// // });
+
+// // this.client.on('auth_failure', msg => {
+// //     // Fired if session restore fails
+// //     console.error('AUTHENTICATION FAILURE', msg);
+// // });
 
 // app.js
 const WhatsappDriver = require('./interaction/whatsappDriver');
