@@ -3,38 +3,40 @@ const DomainEvent = require('../../domain/models/DomainEvent');
 const DomainEventQuery = require('../../domain/models/DomainEventQuery');
 const DomainEventResult = require('../../domain/models/DomainEventResult');
 const DomainEventUpdates = require('../../domain/models/DomainEventUpdates');
+const CalendarContext = require('../../domain/models/CalendarContext');
 
 class GoogleCalendarInfrastructure extends ICalendarInfrastructure {
-    constructor(calendarClient, calendarId) {
+    constructor(calendarClient) {
         super();
         if (!calendarClient) {
             throw new Error('Calendar client is required');
         }
         this.calendarClient = calendarClient;
-        this.calendarId = calendarId;
     }
 
-    async createEvent(event) {
+    /**
+     * Creates a new calendar event
+     * @param {CalendarContext} context - The calendar context to use
+     * @param {DomainEvent} event - The event to create
+     * @returns {Promise<DomainEventResult>} The result of the operation
+     */
+    async createEvent(context, event) {
         try {
-            if (!(event instanceof DomainEvent)) {
-                throw new Error('Invalid event: Must be an instance of DomainEvent');
-            }
-
             const googleEvent = {
                 summary: event.type,
                 description: event.details.description,
                 start: {
                     dateTime: this._combineDateAndTime(event.details.date, event.details.time),
-                    timeZone: 'America/Los_Angeles',
+                    timeZone: context.timezone,
                 },
                 end: {
-                    dateTime: this._combineDateAndTime(event.details.date, event.details.time, 1), // 1 hour duration
-                    timeZone: 'America/Los_Angeles',
+                    dateTime: this._combineDateAndTime(event.details.date, event.details.time, event.details.durationHours),
+                    timeZone: context.timezone,
                 },
             };
 
             const response = await this.calendarClient.events.insert({
-                calendarId: this.calendarId,
+                calendarId: context.calendarId,
                 resource: googleEvent,
             });
 
@@ -55,14 +57,16 @@ class GoogleCalendarInfrastructure extends ICalendarInfrastructure {
         }
     }
 
-    async fetchEvents(query) {
+    /**
+     * Fetches events based on query parameters
+     * @param {CalendarContext} context - The calendar context to use
+     * @param {DomainEventQuery} query - The query parameters for fetching events
+     * @returns {Promise<DomainEventResult>} The query results
+     */
+    async fetchEvents(context, query) {
         try {
-            if (!(query instanceof DomainEventQuery)) {
-                throw new Error('Invalid query: Must be an instance of DomainEventQuery');
-            }
-
             const response = await this.calendarClient.events.list({
-                calendarId: this.calendarId,
+                calendarId: context.calendarId,
                 timeMin: new Date().toISOString(),
                 singleEvents: true,
                 orderBy: 'startTime',
@@ -87,27 +91,30 @@ class GoogleCalendarInfrastructure extends ICalendarInfrastructure {
         }
     }
 
-    async modifyEvent(eventId, updates) {
+    /**
+     * Modifies an existing event
+     * @param {CalendarContext} context - The calendar context to use
+     * @param {string} eventId - The ID of the event to modify
+     * @param {DomainEventUpdates} updates - The updates to apply to the event
+     * @returns {Promise<DomainEventResult>} The result of the operation
+     */
+    async modifyEvent(context, eventId, updates) {
         try {
-            if (!(updates instanceof DomainEventUpdates)) {
-                throw new Error('Invalid updates: Must be an instance of DomainEventUpdates');
-            }
-
             const googleEvent = {
                 summary: updates.updates.type,
                 description: updates.updates.details?.description,
                 start: updates.updates.details?.date && updates.updates.details?.time ? {
                     dateTime: this._combineDateAndTime(updates.updates.details.date, updates.updates.details.time),
-                    timeZone: 'America/Los_Angeles',
+                    timeZone: context.timezone,
                 } : undefined,
                 end: updates.updates.details?.date && updates.updates.details?.time ? {
-                    dateTime: this._combineDateAndTime(updates.updates.details.date, updates.updates.details.time, 1),
-                    timeZone: 'America/Los_Angeles',
+                    dateTime: this._combineDateAndTime(updates.updates.details.date, updates.updates.details.time, updates.updates.details.durationHours),
+                    timeZone: context.timezone,
                 } : undefined,
             };
 
             const response = await this.calendarClient.events.update({
-                calendarId: this.calendarId,
+                calendarId: context.calendarId,
                 eventId: eventId,
                 resource: googleEvent,
             });
@@ -129,10 +136,16 @@ class GoogleCalendarInfrastructure extends ICalendarInfrastructure {
         }
     }
 
-    async removeEvent(eventId) {
+    /**
+     * Removes an event from the calendar
+     * @param {CalendarContext} context - The calendar context to use
+     * @param {string} eventId - The ID of the event to remove
+     * @returns {Promise<DomainEventResult>} The result of the operation
+     */
+    async removeEvent(context, eventId) {
         try {
             await this.calendarClient.events.delete({
-                calendarId: this.calendarId,
+                calendarId: context.calendarId,
                 eventId: eventId,
             });
 
