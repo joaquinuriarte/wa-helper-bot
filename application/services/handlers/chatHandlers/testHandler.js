@@ -1,4 +1,4 @@
-const { ChatHandler } = require('../../../interfaces/handlers');
+const { ChatHandler } = require('../../../interfaces/IHandlers');
 const IInteractionPort = require('../../../interfaces/IInteractionPort');
 const Message = require('../../../models/Message');
 

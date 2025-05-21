@@ -1,18 +1,20 @@
 // application/botLogic.js
 const Message = require('../models/Message');
-const IHandlerFactory = require('../interfaces/handlerFactory');
-const { ChatHandler, UserHandler } = require('../interfaces/handlers');
+const IHandlerFactory = require('../interfaces/IHandlerFactory');
+const { ChatHandler, UserHandler } = require('../interfaces/IHandlers');
+const IBot = require('../interfaces/IBot');
 
 /**
  * BotLogic class acts as the Application Layer handler and message router.
  * It receives structured messages and routes them to the appropriate handler
  * based on the message type (group or user chat).
  */
-class BotLogic {
+class BotLogic extends IBot {
     /**
      * @param {IHandlerFactory} handlerFactory - Factory for creating chat and user handlers
      */
     constructor(handlerFactory) {
+        super();
         if (!handlerFactory) {
             throw new Error("Handler factory is required");
         }

@@ -1,4 +1,4 @@
-const { ChatHandler, UserHandler } = require('./handlers');
+const { ChatHandler, UserHandler } = require('./IHandlers');
 
 /**
  * Interface for creating chat and user handlers
