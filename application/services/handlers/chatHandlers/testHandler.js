@@ -11,6 +11,7 @@ class TestHandler extends ChatHandler {
      */
     constructor(interactionPort) {
         super(interactionPort);
+        this.interactionPort = interactionPort;
     }
 
     /**

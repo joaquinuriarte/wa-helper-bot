@@ -1,10 +1,10 @@
 // handlerFactory.js
-const IHandlerFactory = require('../interfaces/handlerFactory');
-const { ChatHandler, UserHandler } = require('../interfaces/handlers');
+const IHandlerFactory = require('../interfaces/IHandlerFactory');
+const { ChatHandler, UserHandler } = require('../interfaces/IHandlers');
 const IInteractionPort = require('../interfaces/IInteractionPort');
 
 // Available handlers 
-const TestHandler = require('../handlers/chatHandlers/testHandler');
+const TestHandler = require('../Services/handlers/chatHandlers/testHandler');
 
 /**
  * Factory class for creating chat and user handlers
