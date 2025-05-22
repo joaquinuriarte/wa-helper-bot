@@ -12,6 +12,7 @@ const HandlerFactory = require('./application/factories/handlerFactory');
 // Infrastructure Layer
 const GoogleCalendarInfrastructure = require('./infrastructure/calendar/GoogleCalendarInfrastructure');
 const GoogleCalendarSessionManager = require('./infrastructure/calendar/sessionManagers/googleCalendarSessionManager');
+const EventParserInfrastructure = require('./infrastructure/calendar/EventParserInfrastructure');
 const LangchainAgentSessionManager = require('./infrastructure/agents/sessionManagers/LangchainAgentSessionManager');
 const LangchainAgentPlatform = require('./infrastructure/agents/LangchainAgentPlatform');
 const systemPrompt = require('./infrastructure/agents/prompts/systemPrompt');
@@ -69,7 +70,8 @@ async function main() {
     const calendarInfra = new GoogleCalendarInfrastructure(calendarClient);
     // Create and configure Langchain agent infrastructure
     const llm = await LangchainAgentSessionManager.createLLM(apiKeyPath);
-    const langchainAgentPlatform = new LangchainAgentPlatform([calendarInfra], llm, systemPrompt);
+    const eventParserInfra = new EventParserInfrastructure(llm);
+    const langchainAgentPlatform = new LangchainAgentPlatform([calendarInfra, eventParserInfra], llm, systemPrompt);
 
     // ============= DOMAIN LAYER SETUP =============
     // TODO: Create domain tools
