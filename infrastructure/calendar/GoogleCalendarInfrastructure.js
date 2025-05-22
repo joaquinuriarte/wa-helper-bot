@@ -1,9 +1,9 @@
-const ICalendarInfrastructure = require('../../domain/interfaces/ICalendarInfrastructure');
-const DomainEvent = require('../../domain/models/DomainEvent');
-const DomainEventQuery = require('../../domain/models/DomainEventQuery');
-const DomainEventResult = require('../../domain/models/DomainEventResult');
-const DomainEventUpdates = require('../../domain/models/DomainEventUpdates');
-const CalendarContext = require('../../domain/models/CalendarContext');
+const ICalendarInfrastructure = require('../../domain/calendar/interfaces/ICalendarInfrastructure');
+const DomainEvent = require('../../domain/calendar/models/DomainEvent');
+const DomainEventQuery = require('../../domain/calendar/models/DomainEventQuery');
+const DomainEventResult = require('../../domain/calendar/models/DomainEventResult');
+const DomainEventUpdates = require('../../domain/calendar/models/DomainEventUpdates');
+const CalendarContext = require('../../domain/calendar/models/CalendarContext');
 
 class GoogleCalendarInfrastructure extends ICalendarInfrastructure {
     constructor(calendarClient) {
