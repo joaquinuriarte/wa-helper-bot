@@ -28,11 +28,19 @@ class LangchainAgentPlatform extends IAgentExecutionPlatform {
             throw new Error('System prompt must be provided');
         }
 
-        this.infrastructureInstances = infrastructureInstances;
+        // Store calendarInfra for direct use in the tool function
+        this.calendarInfra = infrastructureInstances.find(instance =>
+            instance instanceof GoogleCalendarInfrastructure
+        );
+        this.eventParserInfra = infrastructureInstances.find(instance =>
+            instance instanceof EventParserInfrastructure
+        );
+
         this.llm = llm;
         this.systemPrompt = systemPrompt;
         this.tools = this._createTools();
-        this.executor = this._createExecutor();
+        // Executor initialization moved to an async initialize() method
+        this.executor = null;
     }
 
     /**
@@ -43,11 +51,7 @@ class LangchainAgentPlatform extends IAgentExecutionPlatform {
         const tools = [];
 
         // Event Parser Tool
-        const eventParserInfra = this.infrastructureInstances.find(instance =>
-            instance instanceof EventParserInfrastructure
-        );
-
-        if (eventParserInfra) {
+        if (this.eventParserInfra) {
             const eventParserTool = new Tool({
                 name: 'parse_event',
                 description: `Use this tool to parse natural language text into structured event details.
@@ -56,12 +60,13 @@ class LangchainAgentPlatform extends IAgentExecutionPlatform {
                     Use this tool ONLY when creating new calendar events from natural language input.`,
                 func: async (input) => {
                     try {
-                        const eventDetails = await eventParserInfra.parseEventDetails(input);
+                        const eventDetails = await this.eventParserInfra.parseEventDetails(input);
                         if (!eventDetails) {
                             return 'Failed to parse event details. Please provide clearer information.';
                         }
                         return JSON.stringify(eventDetails);
                     } catch (error) {
+                        console.error(`Error in parse_event tool: ${error.message}`, error.stack);
                         return `Error parsing event details: ${error.message}`;
                     }
                 }
@@ -74,52 +79,78 @@ class LangchainAgentPlatform extends IAgentExecutionPlatform {
         }
 
         // Calendar Tool
-        const calendarInfra = this.infrastructureInstances.find(instance =>
-            instance instanceof GoogleCalendarInfrastructure
-        );
-
-        if (calendarInfra) {
-            const tool = new Tool({
+        if (this.calendarInfra) {
+            const calendarToolInstance = this; // To access this.calendarInfra inside func
+            const calendarTool = new Tool({
                 name: 'calendar',
-                description: `Use this tool to manage calendar events. You can:
-                    - Create new events (MUST use parse_event tool first if input is natural language)
-                    - List upcoming events (no parsing needed)
-                    - Modify existing events (no parsing needed)
-                    - Delete events (no parsing needed)
-                    Input should be a JSON string with an 'action' field ('create', 'list', 'modify', 'delete')
+                description: `Use this tool to manage calendar events. The necessary calendar context (like calendarId) is handled automatically. You can:
+                    - Create new events (MUST use parse_event tool first if input is natural language, the output of parse_event is the input for this tool\'s 'create' action).
+                    - List upcoming events (no parsing needed, input is a JSON object with query parameters, e.g., {} for all upcoming).
+                    - Modify existing events (no parsing needed). Input for 'modify' MUST be a JSON string including an 'eventId' and the fields to update within its parameters (e.g., {"action": "modify", "eventId": "xyz", "summary": "New summary"}).
+                    - Delete events (no parsing needed). Input for 'delete' MUST be a JSON string including an 'eventId' within its parameters (e.g., {"action": "delete", "eventId": "xyz"}).
+                    The general input structure should be a JSON string with an 'action' field ('create', 'list', 'modify', 'delete')
                     and other relevant fields based on the action.`,
-                func: async (input) => {
+                func: async (inputString, runManager) => {
                     try {
-                        const parsedInput = JSON.parse(input);
+                        const parsedInput = JSON.parse(inputString);
                         const { action, ...params } = parsedInput;
+
+                        const requestContext = runManager?.config?.metadata?.requestContext;
+
+                        if (!requestContext || !requestContext.calendarContext) {
+                            return "Error: Calendar context was not available for this operation. Cannot proceed.";
+                        }
+                        const calendarContext = requestContext.calendarContext;
+
+                        if (!calendarContext.calendarId) {
+                            return "Error: Required 'calendarId' is missing from the provided calendarContext.";
+                        }
 
                         switch (action) {
                             case 'create':
-                                return await calendarInfra.createEvent(params);
+                                // params should be the structured event data, potentially from parse_event tool
+                                return await calendarToolInstance.calendarInfra.createEvent(calendarContext, params);
                             case 'list':
-                                return await calendarInfra.fetchEvents(params);
-                            case 'modify':
-                                return await calendarInfra.modifyEvent(params);
-                            case 'delete':
-                                return await calendarInfra.removeEvent(params);
+                                // params should be DomainEventQuery criteria
+                                return await calendarToolInstance.calendarInfra.fetchEvents(calendarContext, params);
+                            case 'modify': {
+                                const { eventId, ...eventDataForUpdates } = params;
+                                if (!eventId) {
+                                    return "Error: 'eventId' is required for modifying an event and must be provided in the input parameters.";
+                                }
+                                // Assuming eventDataForUpdates directly matches the structure needed for DomainEventUpdates payload
+                                const domainEventUpdatesPayload = { updates: eventDataForUpdates };
+                                return await calendarToolInstance.calendarInfra.modifyEvent(calendarContext, eventId, domainEventUpdatesPayload);
+                            }
+                            case 'delete': {
+                                const { eventId } = params;
+                                if (!eventId) {
+                                    return "Error: 'eventId' is required for deleting an event and must be provided in the input parameters.";
+                                }
+                                return await calendarToolInstance.calendarInfra.removeEvent(calendarContext, eventId);
+                            }
                             default:
-                                throw new Error(`Unknown calendar action: ${action}`);
+                                return `Error: Unknown calendar action '${action}'. Valid actions are 'create', 'list', 'modify', 'delete'.`;
                         }
                     } catch (error) {
-                        return `Error in calendar tool: ${error.message}`;
+                        if (error instanceof SyntaxError) {
+                            return `Error: Invalid JSON input for calendar tool: ${error.message}. The input received was: "${inputString}"`;
+                        }
+                        console.error(`Unexpected error in calendar tool: ${error.message}`, error.stack);
+                        return `Error in calendar tool: ${error.message}. Please check the logs.`;
                     }
                 }
             });
 
             // Ensure properties are set on the instance
-            tool.name = 'calendar';
-            tool.description = tool.lc_kwargs.description;
+            calendarTool.name = 'calendar';
+            calendarTool.description = calendarTool.lc_kwargs.description;
 
-            tools.push(tool);
+            tools.push(calendarTool);
         }
 
         if (tools.length === 0) {
-            throw new Error('No valid tools were created from the provided infrastructure instances');
+            console.warn('No tools were created from the provided infrastructure instances. The agent might not be able to perform any actions.');
         }
 
         return tools;
@@ -128,18 +159,32 @@ class LangchainAgentPlatform extends IAgentExecutionPlatform {
     /**
      * Creates the agent executor
      * @private
-     * @returns {Object} The initialized agent executor
+     * @returns {Promise<Object>} The initialized agent executor
      */
-    _createExecutor() {
+    async _createExecutor() {
+        if (!this.tools || this.tools.length === 0) {
+            // console.warn("Attempting to create executor without tools. Agent will have no capabilities.");
+        }
         return initializeAgentExecutorWithOptions(
             this.tools,
             this.llm,
             {
                 agentType: 'chat-conversational-react-description',
-                verbose: true,
-                systemMessage: this.systemPrompt
+                verbose: process.env.LANGCHAIN_VERBOSE === 'true' || true,
+                systemMessage: this.systemPrompt,
+                // handleParsingErrors: true, // Optional: useful for debugging tool input issues
             }
         );
+    }
+
+    /**
+     * Initializes the agent executor. Separated to allow constructor to be synchronous.
+     */
+    async initialize() {
+        this.executor = await this._createExecutor();
+        if (!this.executor) {
+            throw new Error("Failed to initialize agent executor.");
+        }
     }
 
     /**
@@ -148,35 +193,45 @@ class LangchainAgentPlatform extends IAgentExecutionPlatform {
      * @returns {Promise<AgentResponse>} The agent's response
      */
     async processRequest(agentRequest) {
+        if (!this.executor) {
+            const error = new Error("Agent executor is not initialized. Call platform.initialize() before using processRequest.");
+            console.error('Error in LangchainAgentPlatform:', error.message, error.stack);
+            return new AgentResponse(null, { errorDetails: error.message }, error);
+        }
+
         try {
-            // Add conversation history to the context if available
-            const context = agentRequest.context.conversationHistory || [];
+            const { userInput, context: requestContextObject } = agentRequest;
+            const chatHistory = requestContextObject.conversationHistory || [];
 
-            // Execute the agent
-            const result = await this.executor.call({
-                input: agentRequest.userInput,
-                chat_history: context
-            });
+            const result = await this.executor.call(
+                {
+                    input: userInput,
+                    chat_history: chatHistory
+                },
+                {
+                    metadata: { requestContext: requestContextObject }
+                }
+            );
 
-            // Extract actions taken from the agent's execution
-            const actionsTaken = this.executor.agent.actions || [];
+            const actionsTaken = result.intermediate_steps || [];
 
-            // Create and return the response
             return new AgentResponse(
                 result.output,
                 {
-                    actionsTaken: actionsTaken.map(action => ({
-                        tool: action.tool,
-                        input: action.toolInput,
-                        output: action.observation
+                    actionsTaken: actionsTaken.map(actionStep => ({
+                        tool: actionStep.action.tool,
+                        toolInput: actionStep.action.toolInput,
+                        log: actionStep.action.log,
+                        observation: actionStep.observation
                     }))
                 }
             );
         } catch (error) {
-            console.error('Error in LangchainAgentPlatform:', error);
+            console.error('Error in LangchainAgentPlatform processRequest:', error.message, error.stack);
+            const errorDetails = error.cause instanceof Error ? error.cause.message : error.message;
             return new AgentResponse(
-                null,
-                { errorDetails: error.message },
+                `An error occurred: ${error.message}`,
+                { errorDetails: errorDetails },
                 error
             );
         }
