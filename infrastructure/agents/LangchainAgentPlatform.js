@@ -4,6 +4,7 @@ const IAgentExecutionPlatform = require('../../domain/agent/interfaces/IAgentExe
 const AgentRequest = require('../../domain/agent/models/AgentRequest');
 const AgentResponse = require('../../domain/agent/models/AgentResponse');
 const GoogleCalendarInfrastructure = require('../calendar/GoogleCalendarInfrastructure');
+const EventParserInfrastructure = require('../calendar/EventParserInfrastructure');
 
 /**
  * Langchain implementation of the IAgentExecutionPlatform interface.
@@ -41,6 +42,37 @@ class LangchainAgentPlatform extends IAgentExecutionPlatform {
     _createTools() {
         const tools = [];
 
+        // Event Parser Tool
+        const eventParserInfra = this.infrastructureInstances.find(instance =>
+            instance instanceof EventParserInfrastructure
+        );
+
+        if (eventParserInfra) {
+            const eventParserTool = new Tool({
+                name: 'parse_event',
+                description: `Use this tool to parse natural language text into structured event details.
+                    Input should be a string containing event details in natural language.
+                    The tool will return a JSON object with date, time, description, and duration.
+                    Use this tool ONLY when creating new calendar events from natural language input.`,
+                func: async (input) => {
+                    try {
+                        const eventDetails = await eventParserInfra.parseEventDetails(input);
+                        if (!eventDetails) {
+                            return 'Failed to parse event details. Please provide clearer information.';
+                        }
+                        return JSON.stringify(eventDetails);
+                    } catch (error) {
+                        return `Error parsing event details: ${error.message}`;
+                    }
+                }
+            });
+
+            // Ensure properties are set on the instance
+            eventParserTool.name = 'parse_event';
+            eventParserTool.description = eventParserTool.lc_kwargs.description;
+            tools.push(eventParserTool);
+        }
+
         // Calendar Tool
         const calendarInfra = this.infrastructureInstances.find(instance =>
             instance instanceof GoogleCalendarInfrastructure
@@ -50,10 +82,10 @@ class LangchainAgentPlatform extends IAgentExecutionPlatform {
             const tool = new Tool({
                 name: 'calendar',
                 description: `Use this tool to manage calendar events. You can:
-                    - Create new events
-                    - List upcoming events
-                    - Modify existing events
-                    - Delete events
+                    - Create new events (MUST use parse_event tool first if input is natural language)
+                    - List upcoming events (no parsing needed)
+                    - Modify existing events (no parsing needed)
+                    - Delete events (no parsing needed)
                     Input should be a JSON string with an 'action' field ('create', 'list', 'modify', 'delete')
                     and other relevant fields based on the action.`,
                 func: async (input) => {
