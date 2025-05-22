@@ -3,6 +3,7 @@ const { initializeAgentExecutorWithOptions } = require('langchain/agents');
 const IAgentExecutionPlatform = require('../../domain/agent/interfaces/IAgentExecutionPlatform');
 const AgentRequest = require('../../domain/agent/models/AgentRequest');
 const AgentResponse = require('../../domain/agent/models/AgentResponse');
+const GoogleCalendarInfrastructure = require('../calendar/GoogleCalendarInfrastructure');
 
 /**
  * Langchain implementation of the IAgentExecutionPlatform interface.
@@ -42,11 +43,11 @@ class LangchainAgentPlatform extends IAgentExecutionPlatform {
 
         // Calendar Tool
         const calendarInfra = this.infrastructureInstances.find(instance =>
-            instance.constructor.name === 'GoogleCalendarInfrastructure'
+            instance instanceof GoogleCalendarInfrastructure
         );
 
         if (calendarInfra) {
-            tools.push(new Tool({
+            const tool = new Tool({
                 name: 'calendar',
                 description: `Use this tool to manage calendar events. You can:
                     - Create new events
@@ -76,11 +77,18 @@ class LangchainAgentPlatform extends IAgentExecutionPlatform {
                         return `Error in calendar tool: ${error.message}`;
                     }
                 }
-            }));
+            });
+
+            // Ensure properties are set on the instance
+            tool.name = 'calendar';
+            tool.description = tool.lc_kwargs.description;
+
+            tools.push(tool);
         }
 
-        // Add more tools for other infrastructure instances here
-        // Example: Task Tool, Contact Tool, etc.
+        if (tools.length === 0) {
+            throw new Error('No valid tools were created from the provided infrastructure instances');
+        }
 
         return tools;
     }
