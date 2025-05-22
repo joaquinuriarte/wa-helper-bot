@@ -51,19 +51,6 @@ process.on('SIGTERM', async () => {
 
 // ============= MAIN FUNCTION =============
 async function main() {
-    // ============= INTERACTION LAYER SETUP =============
-    // Create and configure WhatsApp client
-    const whatsappClient = await WhatsappSessionManager.createClient();
-    const whatsappDriver = new WhatsappDriver(whatsappClient, BOT_ID);
-
-    // ============= APPLICATION LAYER SETUP =============
-    // Create and configure application services
-    const handlerFactory = new HandlerFactory(whatsappDriver); // TODO: pass in domain logic
-    const botLogic = new BotLogic(handlerFactory);
-
-    // Connect bot logic to WhatsApp driver
-    whatsappDriver.setBot(botLogic);
-
     // ============= INFRASTRUCTURE LAYER SETUP =============
     // Create and configure calendar infrastructure
     const calendarClient = GoogleCalendarSessionManager.createClient(credentials);
@@ -72,6 +59,21 @@ async function main() {
     const llm = await LangchainAgentSessionManager.createLLM(apiKeyPath);
     const eventParserInfra = new EventParserInfrastructure(llm);
     const langchainAgentPlatform = new LangchainAgentPlatform([calendarInfra, eventParserInfra], llm, systemPrompt);
+    await langchainAgentPlatform.initialize();
+
+    // ============= INTERACTION LAYER SETUP =============
+    // Create and configure WhatsApp client
+    const whatsappClient = await WhatsappSessionManager.createClient();
+    const whatsappDriver = new WhatsappDriver(whatsappClient, BOT_ID);
+
+    // ============= APPLICATION LAYER SETUP =============
+    // Create and configure application services
+    const handlerFactory = new HandlerFactory(whatsappDriver, langchainAgentPlatform);
+    const botLogic = new BotLogic(handlerFactory);
+
+    // Connect bot logic to WhatsApp driver
+    whatsappDriver.setBot(botLogic);
+
 
     // ============= DOMAIN LAYER SETUP =============
     // TODO: Create domain tools
