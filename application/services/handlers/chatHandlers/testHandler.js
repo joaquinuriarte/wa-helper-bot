@@ -1,7 +1,7 @@
 const { ChatHandler } = require('../../../interfaces/IHandlers');
 const IInteractionPort = require('../../../interfaces/IInteractionPort');
 const Message = require('../../../models/Message');
-const IAgentExecutionPlatform = require('../../domain/agent/interfaces/IAgentExecutionPlatform');
+const IAgentExecutionPlatform = require('../../../../domain/agent/interfaces/IAgentExecutionPlatform');
 const CalendarContext = require('../../../../domain/calendar/models/CalendarContext');
 /**
  * TestHandler is a basic implementation of ChatHandler for testing purposes.
@@ -33,28 +33,54 @@ class TestHandler extends ChatHandler {
         const agentRequest = {
             userInput: message.body,
             context: {
-                userId: message.senderId,
-                chatId: message.chatId,
-                isGroup: message.isGroup,
-                chatName: message.chatName,
                 calendarContext: this.calendarContext
             }
         };
 
-        // Process message through agent
-        const agentResponse = await this.agentPlatform.processRequest(agentRequest);
+        try {
+            // Process message through agent
+            const agentResponse = await this.agentPlatform.processRequest(agentRequest);
 
-        // Create response message with agent's output
-        const responseMessage = new Message(
-            message.chatId,
-            message.senderId,
-            message.body,
-            message.isGroup,
-            message.chatName,
-            agentResponse.responseText
-        );
+            // Check if there was an error in the agent's processing
+            if (agentResponse.error) {
+                console.error('Agent processing error:', agentResponse.error);
+                // Create error message for user
+                const errorMessage = new Message(
+                    message.chatId,
+                    message.senderId,
+                    message.body,
+                    message.isGroup,
+                    message.chatName,
+                    "I apologize, but I'm having trouble processing your request right now."
+                );
+                await this.interactionPort.sendMessage(errorMessage);
+                return;
+            }
 
-        await this.interactionPort.sendMessage(responseMessage);
+            // Create response message with agent's output
+            const responseMessage = new Message(
+                message.chatId,
+                message.senderId,
+                message.body,
+                message.isGroup,
+                message.chatName,
+                agentResponse.responseText
+            );
+
+            await this.interactionPort.sendMessage(responseMessage);
+        } catch (error) {
+            console.error('Error in handleIncomingMessage:', error);
+            // Create error message for user
+            const errorMessage = new Message(
+                message.chatId,
+                message.senderId,
+                message.body,
+                message.isGroup,
+                message.chatName,
+                "I apologize, but I'm having trouble processing your request right now. Please try again in a moment."
+            );
+            await this.interactionPort.sendMessage(errorMessage);
+        }
     }
 }
 
