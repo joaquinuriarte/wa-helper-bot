@@ -12,7 +12,9 @@
   "dependencies": {
     "@google-cloud/local-auth": "^3.0.1",
     "@google/generative-ai": "^0.24.1",
+    "@langchain/core": "^0.3.57",
     "@langchain/google-genai": "^0.2.9",
+    "@langchain/langgraph": "^0.2.73",
     "googleapis": "^149.0.0",
     "langchain": "^0.3.26",
     "qrcode-terminal": "^0.12.0",

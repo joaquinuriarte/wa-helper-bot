@@ -36,11 +36,26 @@ class EventParserInfrastructure extends IEventParserInfrastructure {
                 
                 Return only the JSON object, nothing else.`;
 
-            const result = await this.llm.generateContent(prompt);
-            const response = result.response.text();
+            const resultMessage = await this.llm.invoke(prompt);
+
+            // TODO: WHy we doing this? 
+            let responseText;
+            if (typeof resultMessage.content === 'string') {
+                responseText = resultMessage.content;
+            } else if (Array.isArray(resultMessage.content) && resultMessage.content.length > 0 && typeof resultMessage.content[0].text === 'string') {
+                responseText = resultMessage.content[0].text;
+            } else {
+                console.error('Error parsing LLM response: content is not in expected format.', resultMessage);
+                return null;
+            }
+
+            //TODO: Add better solution
+            // Clean the responseText to extract pure JSON
+            const jsonMatch = responseText.match(/```(json)?\n(.*)\n```/s);
+            const cleanedJsonString = jsonMatch && jsonMatch[2] ? jsonMatch[2].trim() : responseText.trim();
 
             // Parse the JSON response
-            const parsedDetails = JSON.parse(response);
+            const parsedDetails = JSON.parse(cleanedJsonString);
 
             // Create DomainEventDetails
             const eventDetails = new DomainEventDetails(
@@ -49,6 +64,7 @@ class EventParserInfrastructure extends IEventParserInfrastructure {
                 parsedDetails.description,
                 parsedDetails.durationHours
             );
+            console.log("Event Details:", eventDetails);
 
             // Create and return DomainEvent
             return new DomainEvent(
