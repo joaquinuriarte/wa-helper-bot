@@ -18,8 +18,9 @@ const LangchainAgentPlatform = require('./infrastructure/agents/LangchainAgentPl
 const systemPrompt = require('./infrastructure/agents/prompts/systemPrompt');
 const apiKeyPath = './env/gemini-api-key.json';
 
+
 // ============= CONFIGURATION =============
-const BOT_ID = "17872949783"; // Bot ID for WhatsApp Abuela Home Number
+const BOT_ID = "254232636694646" //"17872949783"; // Bot ID for WhatsApp Abuela Home Number (It randomly changed to new string)
 const credentials = require('./env/lucho-460500-cdb4b1f2ffe0.json'); // Google Calendar credentials
 
 // ============= GRACEFUL SHUTDOWN HANDLERS =============
