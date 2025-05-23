@@ -1,4 +1,5 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { ChatGoogleGenerativeAI } = require('@langchain/google-genai');
 const fs = require('fs');
 const path = require('path');
 
@@ -17,8 +18,13 @@ class LangchainAgentSessionManager {
             throw new Error('API key path must be provided');
         }
         const apiKey = await this._getApiKey(apiKeyPath);
-        const genAI = new GoogleGenerativeAI(apiKey);
-        return genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
+        // Instantiate LangChain's ChatGoogleGenerativeAI model
+        const llm = new ChatGoogleGenerativeAI({
+            model: 'gemini-1.5-pro',
+            apiKey: apiKey,
+            temperature: 0,
+        });
+        return llm;
     }
 
     /**
@@ -29,7 +35,8 @@ class LangchainAgentSessionManager {
      */
     static async _getApiKey(apiKeyPath) {
         try {
-            const apiKeyData = JSON.parse(fs.readFileSync(apiKeyPath, 'utf8'));
+            const resolvedApiKeyPath = path.resolve(apiKeyPath);
+            const apiKeyData = JSON.parse(fs.readFileSync(resolvedApiKeyPath, 'utf8'));
             if (!apiKeyData.apiKey) {
                 throw new Error('API key is empty in the configuration file');
             }

@@ -1,10 +1,12 @@
 const { Tool } = require('langchain/tools');
-const { initializeAgentExecutorWithOptions } = require('langchain/agents');
+const { initializeAgentExecutorWithOptions, AgentExecutor, createReactAgent } = require('langchain/agents');
 const IAgentExecutionPlatform = require('../../domain/agent/interfaces/IAgentExecutionPlatform');
 const AgentRequest = require('../../domain/agent/models/AgentRequest');
 const AgentResponse = require('../../domain/agent/models/AgentResponse');
 const GoogleCalendarInfrastructure = require('../calendar/GoogleCalendarInfrastructure');
 const EventParserInfrastructure = require('../calendar/EventParserInfrastructure');
+
+const { PromptTemplate } = require('@langchain/core/prompts'); // Import PromptTemplate
 
 /**
  * Langchain implementation of the IAgentExecutionPlatform interface.
@@ -39,7 +41,7 @@ class LangchainAgentPlatform extends IAgentExecutionPlatform {
         this.llm = llm;
         this.systemPrompt = systemPrompt;
         this.tools = this._createTools();
-        // Executor initialization moved to an async initialize() method
+        // Executor initialization in an async initialize() method
         this.executor = null;
     }
 
@@ -163,18 +165,22 @@ class LangchainAgentPlatform extends IAgentExecutionPlatform {
      */
     async _createExecutor() {
         if (!this.tools || this.tools.length === 0) {
-            // console.warn("Attempting to create executor without tools. Agent will have no capabilities.");
+            console.warn("Attempting to create executor without tools. Agent will have no capabilities.");
         }
-        return initializeAgentExecutorWithOptions(
-            this.tools,
-            this.llm,
-            {
-                agentType: 'chat-conversational-react-description',
-                verbose: process.env.LANGCHAIN_VERBOSE === 'true' || true,
-                systemMessage: this.systemPrompt,
-                // handleParsingErrors: true, // Optional: useful for debugging tool input issues
-            }
-        );
+        // Create the agent
+        const agent = await createReactAgent({
+            llm: this.llm,
+            tools: this.tools,
+            prompt: PromptTemplate.fromTemplate(this.systemPrompt.trim()),
+        });
+
+        // Create the agent executor
+        return new AgentExecutor({
+            agent,
+            tools: this.tools,
+            verbose: process.env.LANGCHAIN_VERBOSE === 'true' || true,
+            // handleParsingErrors: true, // Optional: useful for debugging tool input issues
+        });
     }
 
     /**
@@ -201,12 +207,10 @@ class LangchainAgentPlatform extends IAgentExecutionPlatform {
 
         try {
             const { userInput, context: requestContextObject } = agentRequest;
-            const chatHistory = requestContextObject.conversationHistory || [];
 
             const result = await this.executor.call(
                 {
-                    input: userInput,
-                    chat_history: chatHistory
+                    input: userInput
                 },
                 {
                     metadata: { requestContext: requestContextObject }
