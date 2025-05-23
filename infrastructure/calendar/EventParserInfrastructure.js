@@ -1,5 +1,6 @@
 const IEventParserInfrastructure = require('../../domain/calendar/interfaces/IEventParserInfrastructure');
 const DomainEventDetails = require('../../domain/calendar/models/DomainEventDetails');
+const DomainEvent = require('../../domain/calendar/models/DomainEvent');
 
 /**
  * Concrete implementation of IEventParserInfrastructure using LLM for parsing event details.
@@ -17,18 +18,19 @@ class EventParserInfrastructure extends IEventParserInfrastructure {
     }
 
     /**
-     * Parses natural language text into structured event details using LLM.
+     * Parses natural language text into a structured DomainEvent using LLM.
      * @param {string} text - The raw string to parse.
-     * @returns {Promise<DomainEventDetails|null>} - A promise that resolves to a DomainEventDetails object or null if parsing fails.
+     * @returns {Promise<DomainEvent|null>} - A promise that resolves to a DomainEvent object or null if parsing fails.
      */
     async parseEventDetails(text) {
         try {
-            const prompt = `Parse the following text into event details. Extract date, time, and description.
+            const prompt = `Parse the following text into event details. Extract date, time, description, and type (summary).
                 Return the result as a JSON object with these fields:
                 - date: YYYY-MM-DD format
                 - time: HH:MM format in 24-hour
                 - description: string
                 - durationHours: number (default to 1 if not specified)
+                - type: string (summary of the event)
                 
                 Text to parse: "${text}"
                 
@@ -40,12 +42,19 @@ class EventParserInfrastructure extends IEventParserInfrastructure {
             // Parse the JSON response
             const parsedDetails = JSON.parse(response);
 
-            // Create and return DomainEventDetails
-            return new DomainEventDetails(
+            // Create DomainEventDetails
+            const eventDetails = new DomainEventDetails(
                 parsedDetails.date,
                 parsedDetails.time,
                 parsedDetails.description,
                 parsedDetails.durationHours
+            );
+
+            // Create and return DomainEvent
+            return new DomainEvent(
+                null, // ID is null as it's assigned by the calendar service
+                parsedDetails.type, // Event type (summary)
+                eventDetails
             );
         } catch (error) {
             console.error('Error parsing event details:', error);
