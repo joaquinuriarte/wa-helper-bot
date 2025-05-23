@@ -1,9 +1,9 @@
 // domain/services/EventParserService.js
-const DomainEventDetails = require('../models/DomainEventDetails');
+const DomainEvent = require('../models/DomainEvent');
 const IEventParserInfrastructure = require('../interfaces/IEventParserInfrastructure');
 
 /**
- * Service for parsing natural language into structured event details.
+ * Service for parsing natural language into a structured Calendar Data Model.
  */
 class EventParserService {
     /**
@@ -17,9 +17,11 @@ class EventParserService {
     }
 
     /**
-     * Parses natural language text into structured event details.
+     * Parses natural language text into a structured DomainEvent object.
+     * The ID of the DomainEvent will likely be null at this stage, as it's typically assigned by the calendar service upon creation.
+     * The 'type' (summary) of the event should be extracted from the text.
      * @param {string} text - The raw string to parse.
-     * @returns {Promise<DomainEventDetails|null>} - A promise that resolves to a DomainEventDetails object or null if parsing fails.
+     * @returns {Promise<DomainEvent|null>} - A promise that resolves to a DomainEvent object or null if parsing fails.
      */
     async parseEventDetails(text) {
         return this._eventParserInfrastructure.parseEventDetails(text);
