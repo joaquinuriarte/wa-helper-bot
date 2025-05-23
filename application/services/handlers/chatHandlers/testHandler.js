@@ -34,6 +34,7 @@ class TestHandler extends ChatHandler {
             userInput: message.body,
             context: {
                 calendarContext: this.calendarContext
+                //TODO: Here i would add more context relevant to more tools 
             }
         };
 
