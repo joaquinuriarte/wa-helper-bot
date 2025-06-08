@@ -21,12 +21,10 @@ class AgentService {
     /**
      * Processes a user's textual input via the configured agent platform.
      *
-     * @param {string} userInput - The textual input from the user.
-     * @param {object} [context] - Optional context for the agent (e.g., userId, chatId, conversationHistory).
+     * @param {AgentRequest} agentRequest - The request containing user input and context.
      * @returns {Promise<AgentResponse>} A promise that resolves to the agent's structured response.
      */
-    async handleUserQuery(userInput, context = {}) {
-        const agentRequest = new AgentRequest(userInput, context);
+    async handleUserQuery(agentRequest) {
         try {
             const agentResponse = await this.agentPlatform.processRequest(agentRequest);
             return agentResponse;
