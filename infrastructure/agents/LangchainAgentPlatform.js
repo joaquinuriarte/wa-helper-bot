@@ -1,17 +1,15 @@
-const { Tool } = require('langchain/tools');
-const { initializeAgentExecutorWithOptions, AgentExecutor, createReactAgent } = require('langchain/agents');
 const IAgentExecutionPlatform = require('../../domain/agent/interfaces/IAgentExecutionPlatform');
 const AgentRequest = require('../../domain/agent/models/AgentRequest');
 const AgentResponse = require('../../domain/agent/models/AgentResponse');
-
-const { PromptTemplate } = require('@langchain/core/prompts'); // Import PromptTemplate
-
-
-
-
+const { ToolNode } = require("@langchain/langgraph/prebuilt");
+const { StateGraph, MessagesAnnotation } = require("@langchain/langgraph");
+const { HumanMessage } = require("@langchain/core/messages");
+const { DynamicTool, tool } = require('@langchain/core/tools');
 const CalendarService = require('../../domain/calendar/services/CalendarService');
 const EventParserService = require('../../domain/calendar/services/EventParserService');
-const { ToolNode } = require("@langchain/langgraph/prebuilt");
+const { ChatGoogleGenerativeAI } = require('@langchain/google-genai');
+const fs = require('fs');
+const path = require('path');
 
 /**
  * Langchain implementation of the IAgentExecutionPlatform interface.
@@ -19,30 +17,30 @@ const { ToolNode } = require("@langchain/langgraph/prebuilt");
  */
 class LangchainAgentPlatform extends IAgentExecutionPlatform {
     /**
-     * @param {Array} infrastructureInstances - Array of infrastructure instances (e.g., [CalendarService, EventParserService])
-     * @param {Object} model - The Langchain LLM instance
+     * @param {Array} domainInstances - Array of domain instances (e.g., [CalendarService, EventParserService])
+     * @param {String} apiKeyPath - The path to the API key file
      * @param {string} systemPrompt - The system prompt to guide the agent's behavior
      */
-    constructor(infrastructureInstances, model, systemPrompt) {
+    constructor(domainInstances, apiKeyPath, systemPrompt) {
         super();
-        if (!Array.isArray(infrastructureInstances) || infrastructureInstances.length === 0) {
+        if (!Array.isArray(domainInstances) || domainInstances.length === 0) {
             throw new Error('At least one infrastructure instance must be provided');
         }
-        if (!model) {
-            throw new Error('LLM instance must be provided');
+        if (!apiKeyPath) {
+            throw new Error('apiKeyPath must be provided');
         }
         if (!systemPrompt) {
             throw new Error('System prompt must be provided');
         }
 
         // Store calendarInfra for direct use in the tool function
-        this.calendarService = infrastructureInstances.find(instance =>
+        this.calendarService = domainInstances.find(instance =>
             instance instanceof CalendarService
         );
-        this.eventParserService = infrastructureInstances.find(instance =>
+        this.eventParserService = domainInstances.find(instance =>
             instance instanceof EventParserService
         );
-        this.model = model;
+        this.apiKeyPath = apiKeyPath;
         this.systemPrompt = systemPrompt;
         this.agent = null;
     }
@@ -50,9 +48,44 @@ class LangchainAgentPlatform extends IAgentExecutionPlatform {
     async createAgent() {
         const tools = await this.createTools();
 
-        const app = await this.compileAgent(this.model, tools);
+        const model = await this.createLLM(this.apiKeyPath, tools);
+
+        const app = await this.compileAgent(model, tools);
 
         this.agent = app;
+    }
+
+    async createLLM(apiKeyPath, tools) {
+        if (!apiKeyPath) {
+            throw new Error('API key path must be provided');
+        }
+        const apiKey = await this._getApiKey(apiKeyPath);
+        // Instantiate LangChain's ChatGoogleGenerativeAI model
+        const llm = new ChatGoogleGenerativeAI({
+            model: 'gemini-1.5-pro',
+            apiKey: apiKey,
+            temperature: 0,
+        }).bindTools(tools);
+        return llm;
+    }
+
+    /**
+     * Retrieves the API key from the configuration file
+     * @private
+     * @param {string} apiKeyPath - Path to the API key file
+     * @returns {Promise<string>} The API key
+     */
+    async _getApiKey(apiKeyPath) {
+        try {
+            const resolvedApiKeyPath = path.resolve(apiKeyPath);
+            const apiKeyData = JSON.parse(fs.readFileSync(resolvedApiKeyPath, 'utf8'));
+            if (!apiKeyData.apiKey) {
+                throw new Error('API key is empty in the configuration file');
+            }
+            return apiKeyData.apiKey;
+        } catch (error) {
+            throw new Error(`Failed to read Gemini API key: ${error.message}`);
+        }
     }
 
     async createTools() {
