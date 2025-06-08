@@ -25,7 +25,7 @@ class BotLogic extends IBot {
      * Handles an incoming message by routing it to the appropriate handler
      * @param {Message} message - The message to handle
      */
-    async handleMessage(message) {
+    async handleMessage(message) { // TODO: logic identifying it bot was mentioned should live here.
         const handler = this.getHandlerForMessage(message);
         if (!handler) {
             return;
