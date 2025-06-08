@@ -1,0 +1,1 @@
+1. Test all components in isolation
