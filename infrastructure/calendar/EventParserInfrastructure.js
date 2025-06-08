@@ -64,7 +64,7 @@ class EventParserInfrastructure extends IEventParserInfrastructure {
                 parsedDetails.description,
                 parsedDetails.durationHours
             );
-            console.log("Event Details:", eventDetails);
+            console.log("HERE BBY 2: Event Details:", eventDetails);
 
             // Create and return DomainEvent
             return new DomainEvent(
