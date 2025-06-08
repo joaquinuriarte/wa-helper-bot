@@ -5,6 +5,11 @@
 const WhatsappSessionManager = require('./interaction/sessionManagers/whatsappSessionManager');
 const WhatsappDriver = require('./interaction/whatsappDriver');
 
+// Domain Layer
+const AgentService = require('./domain/agent/services/AgentService');
+const CalendarService = require('./domain/calendar/services/CalendarService');
+const EventParserService = require('./domain/calendar/services/EventParserService');
+
 // Application Layer
 const BotLogic = require('./application/services/botLogic');
 const HandlerFactory = require('./application/factories/handlerFactory');
@@ -13,7 +18,7 @@ const HandlerFactory = require('./application/factories/handlerFactory');
 const GoogleCalendarInfrastructure = require('./infrastructure/calendar/GoogleCalendarInfrastructure');
 const GoogleCalendarSessionManager = require('./infrastructure/calendar/sessionManagers/googleCalendarSessionManager');
 const EventParserInfrastructure = require('./infrastructure/calendar/EventParserInfrastructure');
-const LangchainAgentSessionManager = require('./infrastructure/agents/sessionManagers/LangchainAgentSessionManager');
+const LLMSessionManager = require('./infrastructure/agents/sessionManagers/LLMSessionManager');
 const LangchainAgentPlatform = require('./infrastructure/agents/LangchainAgentPlatform');
 const systemPrompt = require('./infrastructure/agents/prompts/systemPrompt');
 const apiKeyPath = './env/gemini-api-key.json';
@@ -57,10 +62,20 @@ async function main() {
     const calendarClient = GoogleCalendarSessionManager.createClient(credentials);
     const calendarInfra = new GoogleCalendarInfrastructure(calendarClient);
     // Create and configure Langchain agent infrastructure
-    const llm = await LangchainAgentSessionManager.createLLM(apiKeyPath);
-    const eventParserInfra = new EventParserInfrastructure(llm);
-    const langchainAgentPlatform = new LangchainAgentPlatform([calendarInfra, eventParserInfra], llm, systemPrompt);
-    await langchainAgentPlatform.initialize();
+    const llm_event_parser = LLMSessionManager.createLLM(apiKeyPath);
+    const eventParserInfra = new EventParserInfrastructure(llm_event_parser);
+
+
+    // ============= DOMAIN LAYER SETUP =============
+    const calendarService = new CalendarService(calendarInfra);
+    const eventParserService = new EventParserService(eventParserInfra);
+
+    // ============= AGENT INFRASTRUCTURE LAYER SETUP =============
+    const langchainAgentPlatform = new LangchainAgentPlatform([calendarService, eventParserService], apiKeyPath, systemPrompt);
+    await langchainAgentPlatform.createAgent();
+
+    // ============= AGENT DOMAIN LAYER SETUP =============
+    const agentService = new AgentService(langchainAgentPlatform);
 
     // ============= INTERACTION LAYER SETUP =============
     // Create and configure WhatsApp client
@@ -69,17 +84,11 @@ async function main() {
 
     // ============= APPLICATION LAYER SETUP =============
     // Create and configure application services
-    const handlerFactory = new HandlerFactory(whatsappDriver, langchainAgentPlatform);
+    const handlerFactory = new HandlerFactory(whatsappDriver, agentService);
     const botLogic = new BotLogic(handlerFactory);
 
     // Connect bot logic to WhatsApp driver
     whatsappDriver.setBot(botLogic);
-
-
-    // ============= DOMAIN LAYER SETUP =============
-    // TODO: Create domain tools
-    // TODO: Inject infrastructure plugs
-    // TODO: Configure factory with domain logic
 
     // ============= INITIALIZATION =============
     // Initialize WhatsApp client
