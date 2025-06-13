@@ -24,7 +24,9 @@ class EventParserInfrastructure extends IEventParserInfrastructure {
      */
     async parseEventDetails(text) {
         try {
+            const currentDate = new Date().toISOString().split('T')[0]; // Get current date in YYYY-MM-DD format
             const prompt = `Parse the following text into event details. Extract date, time, description, and type (summary).
+                Current date is ${currentDate}. Use this as reference for relative dates like "tomorrow" or "next week".
                 Return the result as a JSON object with these fields:
                 - date: YYYY-MM-DD format
                 - time: HH:MM format in 24-hour
