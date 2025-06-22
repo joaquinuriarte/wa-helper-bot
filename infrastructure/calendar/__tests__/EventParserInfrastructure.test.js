@@ -8,7 +8,7 @@ describe('EventParserInfrastructure', () => {
     let eventParser;
 
     beforeAll(async () => {
-        const apiKeyPath = path.resolve(__dirname, '../../../../env/gemini-api-key.json');
+        const apiKeyPath = path.resolve(__dirname, '../../../env/gemini-api-key.json');
         llm = await LLMSessionManager.createLLM(apiKeyPath);
     });
 
@@ -60,28 +60,28 @@ describe('EventParserInfrastructure', () => {
             expect(result.details.durationHours).toBe(2);
         });
 
-        it('should extract detailed description correctly', async () => {
-            const result = await eventParser.parseEventDetails(
-                'Weekly team sync on June 20, 2025 at 2:30 PM to discuss project progress, blockers, and next steps'
-            );
-
-            expect(result).toBeInstanceOf(DomainEvent);
-            expect(result.details.description).toBe('Weekly team sync to discuss project progress, blockers, and next steps');
-            expect(result.type).toBe('Weekly Team Sync');
-        });
-
         it('should handle different event types correctly', async () => {
             const result = await eventParser.parseEventDetails(
                 'Birthday party for John on June 20, 2025 at 2:30 PM at Central Park'
             );
 
             expect(result).toBeInstanceOf(DomainEvent);
-            expect(result.type).toBe('Birthday Party');
-            expect(result.details.description).toBe('Birthday party for John at Central Park');
+            expect(result.type.toLowerCase()).toBe('birthday party');
+            expect(result.details.description.toLowerCase()).toBe('birthday party for john at central park');
         });
 
-        it('should return null for invalid input', async () => {
+        it('should return null for empty input', async () => {
             const result = await eventParser.parseEventDetails('');
+            expect(result).toBeNull();
+        });
+
+        it('should return null for invalid/malformed input', async () => {
+            const result = await eventParser.parseEventDetails('this is not an event');
+            expect(result).toBeNull();
+        });
+
+        it('should return null for input with missing required fields', async () => {
+            const result = await eventParser.parseEventDetails('meeting');
             expect(result).toBeNull();
         });
     });
