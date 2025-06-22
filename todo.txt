@@ -1,3 +1,14 @@
-1. Test all components in isolation
-2. Agent entender
+1. Create Event
+2. Fetch, Modify, Remove (might need more event parsers and adding tools to LLM orchestrator)
 3. tres use cases
+    - add to calendar 
+    - quienes estan este weekend (needs group context)
+    - cuando llega x
+
+
+4. Open router pa usar mas barato 
+5. GoogleCalendar MCP
+
+
+
+
