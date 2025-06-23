@@ -92,131 +92,112 @@ class LangchainAgentPlatform extends IAgentExecutionPlatform {
 
         const tools = [];
 
-        // Event Parser Tool
-        if (this.eventParserService) {
-            const eventParserTool = new DynamicTool({
-                name: 'parse_event',
-                description: `Use this tool to parse natural language text into structured event details.
+        // Combined Event Parser + Calendar Tool
+        if (this.eventParserService && this.calendarService) {
+            const createEventTool = new DynamicTool({
+                name: 'create_calendar_event',
+                description: `Use this tool to create calendar events from natural language text.
                     Input should be a string containing event details in natural language.
-                    The tool will return a JSON object with date, time, description, and duration.
-                    Use this tool ONLY when creating new calendar events from natural language input.`,
-                func: async (input) => {
+                    The tool will parse the text and create the calendar event automatically.
+                    Use this tool for creating new calendar events from natural language input.`,
+                func: async (input, config) => {
+                    console.log("🔧 Tool 'create_calendar_event' called with input:", input);
+                    console.log("🔧 Tool config:", config);
+
                     try {
+                        // Step 1: Parse the natural language input
+                        console.log("📝 Step 1: Parsing event details...");
                         const eventDetails = await this.eventParserService.parseEventDetails(input);
                         if (!eventDetails) {
-                            return 'Failed to parse event details. Please provide clearer information.';
+                            console.log("❌ Failed to parse event details");
+                            return 'ERROR: Failed to parse event details. Please provide clearer information about the event.';
                         }
-                        return JSON.stringify(eventDetails);
+                        console.log("✅ Event details parsed:", eventDetails);
+
+                        // Step 2: Get calendar context from config
+                        console.log("📅 Step 2: Getting calendar context...");
+                        console.log("🔍 Config 123:", config);
+                        const requestContext = config?.metadata?.requestContext;
+                        if (!requestContext || !requestContext.calendarContext) {
+                            console.log("❌ Calendar context not available");
+                            return 'ERROR: Calendar context was not available for this operation. The calendar service is not properly configured.';
+                        }
+                        const calendarContext = requestContext.calendarContext;
+                        console.log("✅ Calendar context found");
+
+                        // Step 3: Create the calendar event directly
+                        console.log("➕ Step 3: Creating calendar event...");
+                        const result = await this.calendarService.addEvent(calendarContext, eventDetails);
+
+                        if (result.success) {
+                            console.log("✅ Calendar event created successfully");
+                            return `SUCCESS: Calendar event "${eventDetails.type}" has been created for ${eventDetails.details.date} at ${eventDetails.details.time} (${eventDetails.details.durationHours} hour duration).`;
+                        } else {
+                            console.log("❌ Failed to create calendar event:", result.error);
+                            return `ERROR: Failed to create calendar event: ${result.error}`;
+                        }
                     } catch (error) {
-                        console.error(`Error in parse_event tool: ${error.message}`, error.stack);
-                        return `Error parsing event details: ${error.message}`;
+                        console.log("💥 Tool execution error:", error);
+                        return `ERROR: Unexpected error creating calendar event: ${error.message}`;
                     }
                 }
             });
-            tools.push(eventParserTool);
-            console.log("Created Event Parser Tool", eventParserTool);
+            tools.push(createEventTool);
+            console.log("Created Combined Event Parser + Calendar Tool", createEventTool);
         }
 
-        // Calendar Tool
-        if (this.calendarService) {
-            const calendarTool = tool(
-                async (inputString, config) => {
-                    console.log("Calendar tool (via factory) received config DFDRDS:", JSON.stringify(config, null, 2));
-                    const requestContext = config?.metadata?.requestContext;
-
-                    if (!requestContext || !requestContext.calendarContext) {
-                        console.error("Calendar context not found in tool config.metadata. requestContext:", requestContext);
-                        return "Error: Calendar context was not available for this operation. Cannot proceed.";
-                    }
-                    const calendarContext = requestContext.calendarContext;
-
-                    if (!calendarContext.calendarId) {
-                        return "Error: Required 'calendarId' is missing from the provided calendarContext.";
-                    }
-
-                    try {
-                        const parsedInput = JSON.parse(inputString);
-                        const { action, ...params } = parsedInput;
-                        let result;
-                        switch (action) {
-                            case 'create':
-                                result = await this.calendarService.addEvent(calendarContext, params);
-                                break;
-                            case 'list':
-                                result = await this.calendarService.getEvents(calendarContext, params);
-                                break;
-                            case 'modify': {
-                                const { eventId, ...eventDataForUpdates } = params;
-                                if (!eventId) {
-                                    return "Error: 'eventId' is required for modifying an event and must be provided in the input parameters.";
-                                }
-                                const domainEventUpdatesPayload = { updates: eventDataForUpdates };
-                                result = await this.calendarService.updateEvent(calendarContext, eventId, domainEventUpdatesPayload);
-                                break;
-                            }
-                            case 'delete': {
-                                const { eventId } = params;
-                                if (!eventId) {
-                                    return "Error: 'eventId' is required for deleting an event and must be provided in the input parameters.";
-                                }
-                                result = await this.calendarService.deleteEvent(calendarContext, eventId);
-                                break;
-                            }
-                            default:
-                                return `Error: Unknown calendar action '${action}'. Valid actions are 'create', 'list', 'modify', 'delete'.`;
-                        }
-                        return JSON.stringify(result);
-                    } catch (error) {
-                        if (error instanceof SyntaxError) {
-                            return `Error: Invalid JSON input for calendar tool: ${error.message}. The input received was: "${inputString}"`;
-                        }
-                        console.error(`Unexpected error in calendar tool: ${error.message}`, error.stack);
-                        return `Error in calendar tool: ${error.message}. Please check the logs.`;
-                    }
-                },
-                {
-                    name: 'calendar',
-                    description: `Use this tool to manage calendar events. The necessary calendar context (like calendarId) is handled automatically via request metadata. You can:
-                        - Create new events: The input for this action (excluding the 'action' field itself) MUST be the exact JSON object structure returned by the 'parse_event' tool. For example: {"action": "create", "type": "Meeting with team", "details": {"date": "2024-01-01", "time": "10:00", "description": "Discuss project", "durationHours": 1}}
-                        - List upcoming events (no parsing needed, input is a JSON object with query parameters, e.g., {} for all upcoming).
-                        - Modify existing events (no parsing needed). Input for 'modify' MUST be a JSON string including an 'eventId' and the fields to update within its parameters (e.g., {"action": "modify", "eventId": "xyz", "summary": "New summary"}).
-                        - Delete events (no parsing needed). Input for 'delete' MUST be a JSON string including an 'eventId' within its parameters (e.g., {"action": "delete", "eventId": "xyz"}).
-                        The general input structure should be a JSON string with an 'action' field ('create', 'list', 'modify', 'delete')
-                        and other relevant fields based on the action.`,
-                }
-            );
-            tools.push(calendarTool);
-            console.log("Created Calendar Tool (using tool() factory)", calendarTool);
-        }
         return tools;
     }
 
     async compileAgent(model, tools) {
         console.log("Compiling agent with tools:", tools.map(t => t.name));
+
         // Define the function that determines whether to continue or not
-        function shouldContinue({ messages }) {
-            console.log("shouldContinue called with messages:", messages.length);
+        const shouldContinue = ({ messages }) => {
             const lastMessage = messages[messages.length - 1];
-            console.log("Last message:", lastMessage);
+            console.log("🔍 shouldContinue called with lastMessage:", {
+                content: lastMessage.content,
+                tool_calls: lastMessage.tool_calls,
+                type: lastMessage.constructor.name
+            });
 
             // If the LLM makes a tool call, then we route to the "tools" node
             if (lastMessage.tool_calls?.length) {
-                console.log("Tool calls detected:", lastMessage.tool_calls);
+                console.log("🛠️  Routing to tools node - tool calls found:", lastMessage.tool_calls.length);
                 return "tools";
             }
             // Otherwise, we stop (reply to the user) using the special "__end__" node
+            console.log("✅ Routing to __end__ - no tool calls found");
             return "__end__";
-        }
+        };
 
         // Define the function that calls the model
-        async function callModel(state) {
-            console.log("callModel called with state:", JSON.stringify(state, null, 2));
-            const response = await model.invoke(state.messages);
-            console.log("Model response:", response);
+        const callModel = async (state) => {
+            console.log("🤖 callModel called with state:", {
+                messageCount: state.messages.length,
+                lastMessageContent: state.messages[state.messages.length - 1]?.content?.substring(0, 100) + "..."
+            });
+
+            // Add system prompt to the beginning of messages
+            const messagesWithSystemPrompt = [
+                { role: "system", content: this.systemPrompt },
+                ...state.messages
+            ];
+
+            console.log("📝 Invoking model with messages:", messagesWithSystemPrompt.length);
+            const response = await model.invoke(messagesWithSystemPrompt);
+
+            console.log("📤 Model response:", {
+                content: response.content,
+                tool_calls: response.tool_calls,
+                type: response.constructor.name
+            });
+
             return { messages: [response] };
-        }
+        };
 
         const toolNode = new ToolNode(tools);
+
         // Define a new graph
         const workflow = new StateGraph(MessagesAnnotation)
             .addNode("agent", callModel)
@@ -227,6 +208,7 @@ class LangchainAgentPlatform extends IAgentExecutionPlatform {
 
         // Finally, we compile it into a LangChain Runnable.
         const app = workflow.compile();
+        console.log("🏗️  Agent workflow compiled successfully");
 
         return app;
     }
@@ -245,7 +227,8 @@ class LangchainAgentPlatform extends IAgentExecutionPlatform {
 
             const { userInput, context: requestContextObject } = agentRequest;
 
-
+            console.log("🔍 Invoking agent with user input:", userInput);
+            console.log("🔍 Invoking agent with request context:", requestContextObject);
             const result = await this.agent.invoke(
                 {
                     messages: [new HumanMessage(userInput)],
@@ -258,15 +241,13 @@ class LangchainAgentPlatform extends IAgentExecutionPlatform {
             const messages = result.messages;
             let finalResponse = "";
 
-            if (messages && messages.length > 0) {
-                const lastMessage = messages[messages.length - 1];
-                if (lastMessage && typeof lastMessage.content === 'string' &&
-                    lastMessage.hasOwnProperty('tool_calls') && lastMessage.tool_calls.length === 0) {
-                    console.log("Last message appears to be a final AIMessage to the user.");
-                    finalResponse = lastMessage.content;
-                }
+            // Better (more robust)
+            const finalMessage = messages[messages.length - 1];
+            if (finalMessage?.content && !finalMessage.tool_calls?.length) {
+                finalResponse = finalMessage.content;
             } else {
-                finalResponse = "Error: Last message is not structured as a final AIMessage response to the user (e.g., content not string, or has tool_calls, or tool_calls property missing).";
+                // Handle case where agent didn't finish properly
+                finalResponse = "I'm having trouble processing your request. Please try again.";
             }
 
 
@@ -274,7 +255,6 @@ class LangchainAgentPlatform extends IAgentExecutionPlatform {
                 finalResponse
             );
         } catch (error) {
-            console.error('Error in LangchainAgentPlatform processRequest:', error.message, error.stack);
             const errorDetails = error.cause instanceof Error ? error.cause.message : error.message;
             return new AgentResponse(
                 `An error occurred: ${error.message}`,
@@ -285,4 +265,4 @@ class LangchainAgentPlatform extends IAgentExecutionPlatform {
     }
 }
 
-module.exports = LangchainAgentPlatform; 
+module.exports = LangchainAgentPlatform;
