@@ -1,13 +1,17 @@
-1. Create Event
+1. Create Event - agent session manager que esta haciendo?
+    - problem right now is that calendar context is not passed to calendar tool // tools are having trouble accessing context
 2. Fetch, Modify, Remove (might need more event parsers and adding tools to LLM orchestrator)
 3. tres use cases
     - add to calendar 
     - quienes estan este weekend (needs group context)
     - cuando llega x
+4. Mueve logic de verificar si llamaron a lucho a application layer
 
-
-4. Open router pa usar mas barato 
+2. Si tool returns error, add explanation of why and make agent inform user about it
+3. Entender langgraph compile model and how framework works
+4. Open router pa usar mas barato. Currently estoy usando Langchain wrapper para gemini 1.5 pro. Uso en agent and event parser. Event parser using zod for structured output.
 5. GoogleCalendar MCP
+6. Memory would go in callModel function inside compileModel inside LangchainAgentPlatform inside infra/agents
 
 
 
