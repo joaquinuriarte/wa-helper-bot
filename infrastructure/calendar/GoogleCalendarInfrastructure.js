@@ -34,13 +34,11 @@ class GoogleCalendarInfrastructure extends ICalendarInfrastructure {
                     timeZone: context.timezone,
                 },
             };
-            console.log('CREATING GOOGLE EVENT WITH INFO: ', googleEvent);
 
             const response = await this.calendarClient.events.insert({
                 calendarId: context.calendarId,
                 resource: googleEvent,
             });
-            console.log('GOOGLE EVENT CREATED WITH INFO: ', response);
             return new DomainEventResult(
                 true,
                 new DomainEvent(
