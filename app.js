@@ -62,7 +62,7 @@ async function main() {
     const calendarClient = GoogleCalendarSessionManager.createClient(credentials);
     const calendarInfra = new GoogleCalendarInfrastructure(calendarClient);
     // Create and configure Langchain agent infrastructure
-    const llm_event_parser = LLMSessionManager.createLLM(apiKeyPath);
+    const llm_event_parser = await LLMSessionManager.createLLM(apiKeyPath);
     const eventParserInfra = new EventParserInfrastructure(llm_event_parser);
 
 
