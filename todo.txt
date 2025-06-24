@@ -1,5 +1,17 @@
-1. Create Event - agent session manager que esta haciendo?
-    - problem right now is that calendar context is not passed to calendar tool // tools are having trouble accessing context
+1. Que funcione add y fetch (simple, cuando llega x)
+    - (DONE) Create Event
+        - Este ejemplo: "Create a calendar event for a visit to Plaza with irene in two days between 10am and 2pm" 
+            - Fails to add proper event title in calendar (escribio "Create a calendar event" en type gods knows why)
+            - Sets duration to 1 hour (prmpt problem probably)
+    - (IN PROGRESS) Fetch Event
+2. Pulir
+    - Spanish (ver notion)
+    - also que si le hablan y ya responda como LLM. no solo calendar manager. 
+    - dale personalidad (script o famous quotes lines from a movie person and add to sys prompt). 
+    - tiene que require all params para calendar. si no se lo dieron, que lo pida again. does this need memory?
+3. Deploy y release
+
+
 2. Fetch, Modify, Remove (might need more event parsers and adding tools to LLM orchestrator)
 3. tres use cases
     - add to calendar 
@@ -14,5 +26,9 @@
 6. Memory would go in callModel function inside compileModel inside LangchainAgentPlatform inside infra/agents
 
 
+
+
+--- 
+- No puedes decirle "add X after Y" pq no puede fetch y para get things for X
 
 
