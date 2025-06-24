@@ -43,6 +43,7 @@ class LangchainAgentPlatform extends IAgentExecutionPlatform {
         this.apiKeyPath = apiKeyPath;
         this.systemPrompt = systemPrompt;
         this.agent = null;
+        this.calendarContext = null;
     }
 
     async createAgent() {
@@ -89,7 +90,6 @@ class LangchainAgentPlatform extends IAgentExecutionPlatform {
     }
 
     async createTools() {
-
         const tools = [];
 
         // Combined Event Parser + Calendar Tool
@@ -100,83 +100,80 @@ class LangchainAgentPlatform extends IAgentExecutionPlatform {
                     Input should be a string containing event details in natural language.
                     The tool will parse the text and create the calendar event automatically.
                     Use this tool for creating new calendar events from natural language input.`,
-                func: async (input, config) => {
-                    console.log("🔧 Tool 'create_calendar_event' called with input:", input);
-                    console.log("🔧 Tool config:", config);
+                func: async (input) => {
+                    console.log("🛠️  [TOOL] create_calendar_event called");
+                    console.log("   📝 Input:", input);
 
                     try {
                         // Step 1: Parse the natural language input
-                        console.log("📝 Step 1: Parsing event details...");
-                        const eventDetails = await this.eventParserService.parseEventDetails(input);
+                        console.log("   🔍 Step 1: Parsing event details...");
+                        const timezone = this.calendarContext?.calendarContext?.timezone;
+                        const eventDetails = await this.eventParserService.parseEventDetails(input, timezone);
                         if (!eventDetails) {
-                            console.log("❌ Failed to parse event details");
+                            console.log("   ❌ Step 1: Failed to parse event details");
                             return 'ERROR: Failed to parse event details. Please provide clearer information about the event.';
                         }
-                        console.log("✅ Event details parsed:", eventDetails);
+                        console.log("   ✅ Step 1: Event parsed successfully");
+                        console.log("      📅 Date:", eventDetails.details.date);
+                        console.log("      🕐 Time:", eventDetails.details.time);
+                        console.log("      🕐 Duration:", eventDetails.details.durationHours);
+                        console.log("      📝 Description:", eventDetails.details.description);
+                        console.log("      📝 Type:", eventDetails.type);
 
                         // Step 2: Get calendar context from config
-                        console.log("📅 Step 2: Getting calendar context...");
-                        console.log("🔍 Config 123:", config);
-                        const requestContext = config?.metadata?.requestContext;
-                        if (!requestContext || !requestContext.calendarContext) {
-                            console.log("❌ Calendar context not available");
+                        //TODO: this is a temporary fix to get the calendar context. We need to find a better way to do this.
+                        // We could build a dictionary that retains per chat agents with expiration time. Chathandlers, when invoking agnet, 
+                        // find their agent or create a new one, add to queue, and then invoke the agent.
+                        // This would allow us to supply calendar context and chat specific context to the agent at creation time which is a better solution.
+                        // Step 2: Get calendar context from config
+                        const calendarContext = this.calendarContext;
+                        if (!calendarContext) {
+                            console.log("   ❌ Step 2: Calendar context not available");
                             return 'ERROR: Calendar context was not available for this operation. The calendar service is not properly configured.';
                         }
-                        const calendarContext = requestContext.calendarContext;
-                        console.log("✅ Calendar context found");
+                        console.log("   ✅ Step 2: Calendar context ready");
 
-                        // Step 3: Create the calendar event directly
-                        console.log("➕ Step 3: Creating calendar event...");
+                        // Step 3: Create the calendar event
+                        console.log("   🔄 Step 3: Creating calendar event...");
                         const result = await this.calendarService.addEvent(calendarContext, eventDetails);
 
                         if (result.success) {
-                            console.log("✅ Calendar event created successfully");
+                            console.log("   ✅ Step 3: Calendar event created successfully");
                             return `SUCCESS: Calendar event "${eventDetails.type}" has been created for ${eventDetails.details.date} at ${eventDetails.details.time} (${eventDetails.details.durationHours} hour duration).`;
                         } else {
-                            console.log("❌ Failed to create calendar event:", result.error);
+                            console.log("   ❌ Step 3: Failed to create calendar event:", result.error);
                             return `ERROR: Failed to create calendar event: ${result.error}`;
                         }
                     } catch (error) {
-                        console.log("💥 Tool execution error:", error);
+                        console.log("   💥 Tool execution error:", error.message);
                         return `ERROR: Unexpected error creating calendar event: ${error.message}`;
                     }
                 }
             });
             tools.push(createEventTool);
-            console.log("Created Combined Event Parser + Calendar Tool", createEventTool);
         }
 
         return tools;
     }
 
     async compileAgent(model, tools) {
-        console.log("Compiling agent with tools:", tools.map(t => t.name));
-
         // Define the function that determines whether to continue or not
         const shouldContinue = ({ messages }) => {
             const lastMessage = messages[messages.length - 1];
-            console.log("🔍 shouldContinue called with lastMessage:", {
-                content: lastMessage.content,
-                tool_calls: lastMessage.tool_calls,
-                type: lastMessage.constructor.name
-            });
 
             // If the LLM makes a tool call, then we route to the "tools" node
             if (lastMessage.tool_calls?.length) {
-                console.log("🛠️  Routing to tools node - tool calls found:", lastMessage.tool_calls.length);
+                console.log("🔄 [AGENT] Routing to tools - tool calls detected");
                 return "tools";
             }
             // Otherwise, we stop (reply to the user) using the special "__end__" node
-            console.log("✅ Routing to __end__ - no tool calls found");
+            console.log("✅ [AGENT] Routing to end - no tool calls");
             return "__end__";
         };
 
         // Define the function that calls the model
         const callModel = async (state) => {
-            console.log("🤖 callModel called with state:", {
-                messageCount: state.messages.length,
-                lastMessageContent: state.messages[state.messages.length - 1]?.content?.substring(0, 100) + "..."
-            });
+            console.log("🤖 [AGENT] Processing user input...");
 
             // Add system prompt to the beginning of messages
             const messagesWithSystemPrompt = [
@@ -184,14 +181,13 @@ class LangchainAgentPlatform extends IAgentExecutionPlatform {
                 ...state.messages
             ];
 
-            console.log("📝 Invoking model with messages:", messagesWithSystemPrompt.length);
             const response = await model.invoke(messagesWithSystemPrompt);
 
-            console.log("📤 Model response:", {
-                content: response.content,
-                tool_calls: response.tool_calls,
-                type: response.constructor.name
-            });
+            if (response.tool_calls?.length) {
+                console.log("🛠️  [AGENT] Tool calls requested:", response.tool_calls.map(tc => tc.name));
+            } else {
+                console.log("💬 [AGENT] Generating response to user");
+            }
 
             return { messages: [response] };
         };
@@ -208,7 +204,6 @@ class LangchainAgentPlatform extends IAgentExecutionPlatform {
 
         // Finally, we compile it into a LangChain Runnable.
         const app = workflow.compile();
-        console.log("🏗️  Agent workflow compiled successfully");
 
         return app;
     }
@@ -224,17 +219,20 @@ class LangchainAgentPlatform extends IAgentExecutionPlatform {
             throw new Error('Agent not created. Call createAgent() first.');
         }
         try {
-
             const { userInput, context: requestContextObject } = agentRequest;
 
-            console.log("🔍 Invoking agent with user input:", userInput);
-            console.log("🔍 Invoking agent with request context:", requestContextObject);
+            console.log("🚀 [REQUEST] Processing new request");
+            console.log("   📝 User input:", userInput);
+
+            //TODO: this is a temporary fix to get the calendar context. We need to find a better way to do this.
+            // We could build a dictionary that retains per chat agents with expiration time. Chathandlers, when invoking agnet, 
+            // find their agent or create a new one, add to queue, and then invoke the agent.
+            // This would allow us to supply calendar context and chat specific context to the agent at creation time which is a better solution.
+            this.calendarContext = requestContextObject;
+
             const result = await this.agent.invoke(
                 {
                     messages: [new HumanMessage(userInput)],
-                },
-                {
-                    metadata: { requestContext: requestContextObject }
                 }
             );
 
@@ -244,17 +242,27 @@ class LangchainAgentPlatform extends IAgentExecutionPlatform {
             // Better (more robust)
             const finalMessage = messages[messages.length - 1];
             if (finalMessage?.content && !finalMessage.tool_calls?.length) {
-                finalResponse = finalMessage.content;
+                finalResponse = finalMessage.content.trim(); // Trim trailing whitespace and newlines
+                console.log("✅ [REQUEST] Request completed successfully");
             } else {
                 // Handle case where agent didn't finish properly
                 finalResponse = "I'm having trouble processing your request. Please try again.";
+                console.log("❌ [REQUEST] Request failed - agent didn't complete properly");
             }
 
-
-            return new AgentResponse(
-                finalResponse
-            );
+            //TODO: this is a temporary fix to get the calendar context. We need to find a better way to do this.
+            // We could build a dictionary that retains per chat agents with expiration time. Chathandlers, when invoking agnet, 
+            // find their agent or create a new one, add to queue, and then invoke the agent.
+            // This would allow us to supply calendar context and chat specific context to the agent at creation time which is a better solution.   
+            this.calendarContext = null;
+            return new AgentResponse(finalResponse);
         } catch (error) {
+            //TODO: this is a temporary fix to get the calendar context. We need to find a better way to do this.
+            // We could build a dictionary that retains per chat agents with expiration time. Chathandlers, when invoking agnet, 
+            // find their agent or create a new one, add to queue, and then invoke the agent.
+            // This would allow us to supply calendar context and chat specific context to the agent at creation time which is a better solution.   
+            this.calendarContext = null;
+            console.log("💥 [REQUEST] Request failed with error:", error.message);
             const errorDetails = error.cause instanceof Error ? error.cause.message : error.message;
             return new AgentResponse(
                 `An error occurred: ${error.message}`,
