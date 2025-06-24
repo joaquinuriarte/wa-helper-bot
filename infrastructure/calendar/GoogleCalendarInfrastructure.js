@@ -27,16 +27,16 @@ class GoogleCalendarInfrastructure extends ICalendarInfrastructure {
                 description: event.details?.description || '',
                 start: {
                     dateTime: this._combineDateAndTime(event.details.date, event.details.time),
-                    timeZone: context.timezone,
+                    timeZone: context.calendarContext.timezone,
                 },
                 end: {
                     dateTime: this._combineDateAndTime(event.details.date, event.details.time, event.details.durationHours),
-                    timeZone: context.timezone,
+                    timeZone: context.calendarContext.timezone,
                 },
             };
 
             const response = await this.calendarClient.events.insert({
-                calendarId: context.calendarId,
+                calendarId: context.calendarContext.calendarId,
                 resource: googleEvent,
             });
             return new DomainEventResult(
@@ -65,7 +65,7 @@ class GoogleCalendarInfrastructure extends ICalendarInfrastructure {
     async fetchEvents(context, query) {
         try {
             const response = await this.calendarClient.events.list({
-                calendarId: context.calendarId,
+                calendarId: context.calendarContext.calendarId,
                 timeMin: new Date().toISOString(),
                 singleEvents: true,
                 orderBy: 'startTime',
@@ -104,16 +104,16 @@ class GoogleCalendarInfrastructure extends ICalendarInfrastructure {
                 description: updates.updates.details?.description,
                 start: updates.updates.details?.date && updates.updates.details?.time ? {
                     dateTime: this._combineDateAndTime(updates.updates.details.date, updates.updates.details.time),
-                    timeZone: context.timezone,
+                    timeZone: context.calendarContext.timezone,
                 } : undefined,
                 end: updates.updates.details?.date && updates.updates.details?.time ? {
                     dateTime: this._combineDateAndTime(updates.updates.details.date, updates.updates.details.time, updates.updates.details.durationHours),
-                    timeZone: context.timezone,
+                    timeZone: context.calendarContext.timezone,
                 } : undefined,
             };
 
             const response = await this.calendarClient.events.update({
-                calendarId: context.calendarId,
+                calendarId: context.calendarContext.calendarId,
                 eventId: eventId,
                 resource: googleEvent,
             });
@@ -144,7 +144,7 @@ class GoogleCalendarInfrastructure extends ICalendarInfrastructure {
     async removeEvent(context, eventId) {
         try {
             await this.calendarClient.events.delete({
-                calendarId: context.calendarId,
+                calendarId: context.calendarContext.calendarId,
                 eventId: eventId,
             });
 
