@@ -21,16 +21,28 @@ class EventParserInfrastructure extends IEventParserInfrastructure {
     /**
      * Parses natural language text into a structured DomainEvent using LLM.
      * @param {string} text - The raw string to parse.
+     * @param {string} timezone - Optional timezone for date calculations (e.g., 'America/Los_Angeles')
      * @returns {Promise<DomainEvent|null>} - A promise that resolves to a DomainEvent object or null if parsing fails.
      */
-    async parseEventDetails(text) {
+    async parseEventDetails(text, timezone = null) {  //TODO: Instead of returning null, we should return the error message somehow.
         try {
             // Handle empty or invalid input early
             if (!text || typeof text !== 'string' || text.trim() === '') {
                 return null;
             }
 
-            const currentDate = new Date().toISOString().split('T')[0]; // Get current date in YYYY-MM-DD format
+            // Get current date in the specified timezone or return error if no timezone provided
+            let currentDate;
+            if (timezone) {
+                // Use timezone-aware date calculation
+                const now = new Date();
+                const options = { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' };
+                currentDate = now.toLocaleDateString('en-CA', options); // en-CA gives YYYY-MM-DD format
+            } else {
+                // Return null if no timezone provided (parsing failure)
+                console.log("❌ No timezone provided. Timezone is required for proper date calculations.");
+                return null;
+            }
 
             // Define the structured output schema using Zod
             const EventSchema = z.object({
@@ -45,13 +57,15 @@ class EventParserInfrastructure extends IEventParserInfrastructure {
                 error: z.string().optional().describe("Error message (only present if success is false)")
             });
 
+            const timezoneInfo = timezone ? ` in timezone ${timezone}` : '';
             const prompt = `Parse the following text into event details. Extract date, time, description, and type (summary).
-                Current date is ${currentDate}. Use this as reference for relative dates like "tomorrow" or "next week".
+                Current date${timezoneInfo} is ${currentDate}. Use this as reference for relative dates like "tomorrow" or "next week".
                 
                 Rules:
                 - If the text contains valid event information, set success to true and provide the data
                 - If the text is empty, unclear, or doesn't contain event information, set success to false and provide an error message
                 - Always return valid structured data matching the schema
+                - When calculating relative dates like "tomorrow", use the current date as reference
                 
                 Text to parse: "${text}"`;
 
