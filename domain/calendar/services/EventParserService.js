@@ -21,10 +21,11 @@ class EventParserService {
      * The ID of the DomainEvent will likely be null at this stage, as it's typically assigned by the calendar service upon creation.
      * The 'type' (summary) of the event should be extracted from the text.
      * @param {string} text - The raw string to parse.
+     * @param {string} timezone - Optional timezone for date calculations (e.g., 'America/Los_Angeles')
      * @returns {Promise<DomainEvent|null>} - A promise that resolves to a DomainEvent object or null if parsing fails.
      */
-    async parseEventDetails(text) {
-        return this._eventParserInfrastructure.parseEventDetails(text);
+    async parseEventDetails(text, timezone = null) {
+        return this._eventParserInfrastructure.parseEventDetails(text, timezone);
     }
 }
 
