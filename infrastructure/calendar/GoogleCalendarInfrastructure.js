@@ -22,7 +22,7 @@ class GoogleCalendarInfrastructure extends ICalendarInfrastructure {
      * @param {DomainEvent} event - The event to create
      * @returns {Promise<DomainEventResult>} The result of the operation
      */
-    async createEvent(context, event) {
+    async createEvent(context, event) { //TODO: Add ability to create all-day events.
         try {
             const googleEvent = {
                 summary: event.details.title,
@@ -59,102 +59,123 @@ class GoogleCalendarInfrastructure extends ICalendarInfrastructure {
     }
 
     /**
-     * Fetches events based on query parameters
+     * Fetches events within a date range.
+     * If the caller omits timeMin/timeMax, defaults to today → +6 months (UTC).
      * @param {CalendarContext} context - The calendar context to use
      * @param {DomainEventQuery} query - The query parameters for fetching events
      * @returns {Promise<DomainEventResult>} The query results
      */
     async fetchEvents(context, query) {
         try {
+            // build criteria with sensible fallbacks
+            const criteria = { ...(query?.criteria ?? {}) };
+
+            // default lower bound: 00:00 today (UTC)
+            if (!criteria.timeMin) {
+                const now = new Date();
+                const startOfTodayUTC = new Date(Date.UTC(
+                    now.getUTCFullYear(),
+                    now.getUTCMonth(),
+                    now.getUTCDate()
+                ));
+                criteria.timeMin = startOfTodayUTC.toISOString();
+            }
+
+            // default upper bound: +6 calendar months from timeMin
+            if (!criteria.timeMax) {
+                const max = new Date(criteria.timeMin);
+                max.setUTCMonth(max.getUTCMonth() + 6);
+                criteria.timeMax = max.toISOString();
+            }
+
             const response = await this.calendarClient.events.list({
                 calendarId: context.calendarContext.calendarId,
-                timeMin: new Date().toISOString(),
-                singleEvents: true,
-                orderBy: 'startTime',
-                ...query.criteria
+                ...criteria,            // all caller-supplied / default params
+                singleEvents: true      // keep: flattens recurrences for easier mapping
             });
 
-            const events = response.data.items.map(event =>
-                new DomainEvent(
-                    event.id,
-                    event.summary,
+            const events = response.data.items.map(evt => {
+                const start = evt.start.dateTime || evt.start.date;  // all-day safe
+                return new DomainEvent(
+                    evt.id,
+                    evt.summary,
                     {
-                        date: new Date(event.start.dateTime),
-                        time: new Date(event.start.dateTime),
-                        description: event.description
+                        date: new Date(start),
+                        time: new Date(start),
+                        description: evt.description
                     }
-                )
-            );
+                );
+            });
 
             return new DomainEventResult(true, events);
-        } catch (error) {
-            return new DomainEventResult(false, null, error.message);
+        } catch (err) {
+            return new DomainEventResult(false, null, err.message);
         }
     }
 
-    /**
-     * Modifies an existing event
-     * @param {CalendarContext} context - The calendar context to use
-     * @param {string} eventId - The ID of the event to modify
-     * @param {DomainEventUpdates} updates - The updates to apply to the event
-     * @returns {Promise<DomainEventResult>} The result of the operation
-     */
-    async modifyEvent(context, eventId, updates) {
-        try {
-            const googleEvent = {
-                summary: updates.updates.type,
-                description: updates.updates.details?.description,
-                start: updates.updates.details?.date && updates.updates.details?.time ? {
-                    dateTime: _combineDateAndTime(updates.updates.details.date, updates.updates.details.time),
-                    timeZone: context.calendarContext.timezone,
-                } : undefined,
-                end: updates.updates.details?.date && updates.updates.details?.time ? {
-                    dateTime: _combineDateAndTime(updates.updates.details.date, updates.updates.details.time, updates.updates.details.durationHours),
-                    timeZone: context.calendarContext.timezone,
-                } : undefined,
-            };
+    // /**
+    //  * Modifies an existing event
+    //  * @param {CalendarContext} context - The calendar context to use
+    //  * @param {string} eventId - The ID of the event to modify
+    //  * @param {DomainEventUpdates} updates - The updates to apply to the event
+    //  * @returns {Promise<DomainEventResult>} The result of the operation
+    //  */
+    // async modifyEvent(context, eventId, updates) {
+    //     try {
+    //         const googleEvent = {
+    //             summary: updates.updates.type,
+    //             description: updates.updates.details?.description,
+    //             start: updates.updates.details?.date && updates.updates.details?.time ? {
+    //                 dateTime: _combineDateAndTime(updates.updates.details.date, updates.updates.details.time),
+    //                 timeZone: context.calendarContext.timezone,
+    //             } : undefined,
+    //             end: updates.updates.details?.date && updates.updates.details?.time ? {
+    //                 dateTime: _combineDateAndTime(updates.updates.details.date, updates.updates.details.time, updates.updates.details.durationHours),
+    //                 timeZone: context.calendarContext.timezone,
+    //             } : undefined,
+    //         };
 
-            const response = await this.calendarClient.events.update({
-                calendarId: context.calendarContext.calendarId,
-                eventId: eventId,
-                resource: googleEvent,
-            });
+    //         const response = await this.calendarClient.events.update({
+    //             calendarId: context.calendarContext.calendarId,
+    //             eventId: eventId,
+    //             resource: googleEvent,
+    //         });
 
-            return new DomainEventResult(
-                true,
-                new DomainEvent(
-                    response.data.id,
-                    response.data.summary,
-                    {
-                        date: new Date(response.data.start.dateTime),
-                        time: new Date(response.data.start.dateTime),
-                        description: response.data.description || ''
-                    }
-                )
-            );
-        } catch (error) {
-            return new DomainEventResult(false, null, error.message);
-        }
-    }
+    //         return new DomainEventResult(
+    //             true,
+    //             new DomainEvent(
+    //                 response.data.id,
+    //                 response.data.summary,
+    //                 {
+    //                     date: new Date(response.data.start.dateTime),
+    //                     time: new Date(response.data.start.dateTime),
+    //                     description: response.data.description || ''
+    //                 }
+    //             )
+    //         );
+    //     } catch (error) {
+    //         return new DomainEventResult(false, null, error.message);
+    //     }
+    // }
 
-    /**
-     * Removes an event from the calendar
-     * @param {CalendarContext} context - The calendar context to use
-     * @param {string} eventId - The ID of the event to remove
-     * @returns {Promise<DomainEventResult>} The result of the operation
-     */
-    async removeEvent(context, eventId) {
-        try {
-            await this.calendarClient.events.delete({
-                calendarId: context.calendarContext.calendarId,
-                eventId: eventId,
-            });
+    // /**
+    //  * Removes an event from the calendar
+    //  * @param {CalendarContext} context - The calendar context to use
+    //  * @param {string} eventId - The ID of the event to remove
+    //  * @returns {Promise<DomainEventResult>} The result of the operation
+    //  */
+    // async removeEvent(context, eventId) {
+    //     try {
+    //         await this.calendarClient.events.delete({
+    //             calendarId: context.calendarContext.calendarId,
+    //             eventId: eventId,
+    //         });
 
-            return new DomainEventResult(true, null);
-        } catch (error) {
-            return new DomainEventResult(false, null, error.message);
-        }
-    }
+    //         return new DomainEventResult(true, null);
+    //     } catch (error) {
+    //         return new DomainEventResult(false, null, error.message);
+    //     }
+    // }
 }
 
 module.exports = GoogleCalendarInfrastructure; 

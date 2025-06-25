@@ -33,6 +33,33 @@ function _combineDateAndTime(dateString, timeString, hoursToAdd = 0) {
     return `${resYear}-${resMonth}-${resDay}T${resHour}:${resMinute}:00`;
 }
 
+/**
+ * Gets timezone-aware current date and day information
+ * @param {string} timezone - Timezone for date calculations (e.g., 'America/Los_Angeles')
+ * @returns {Object} Object containing currentDate (YYYY-MM-DD) and currentDayName (e.g., "Tuesday")
+ */
+function getCurrentDateInfo(timezone) {
+    if (!timezone) {
+        throw new Error('Timezone is required for date calculations');
+    }
+
+    const now = new Date();
+
+    // Get date in YYYY-MM-DD format
+    const dateOptions = { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' };
+    const currentDate = now.toLocaleDateString('en-CA', dateOptions); // en-CA gives YYYY-MM-DD format
+
+    // Get day name for weekend calculations
+    const dayOptions = { timeZone: timezone, weekday: 'long' };
+    const currentDayName = now.toLocaleDateString('en-US', dayOptions); // e.g., "Tuesday"
+
+    return {
+        currentDate,
+        currentDayName
+    };
+}
+
 module.exports = {
-    _combineDateAndTime
+    _combineDateAndTime,
+    getCurrentDateInfo
 };

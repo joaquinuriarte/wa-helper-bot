@@ -4,7 +4,7 @@ const AgentResponse = require('../../domain/agent/models/AgentResponse');
 const { ToolNode } = require("@langchain/langgraph/prebuilt");
 const { StateGraph, MessagesAnnotation } = require("@langchain/langgraph");
 const { HumanMessage } = require("@langchain/core/messages");
-const { DynamicTool, tool } = require('@langchain/core/tools');
+const { DynamicTool } = require('@langchain/core/tools');
 const CalendarService = require('../../domain/calendar/services/CalendarService');
 const EventParserService = require('../../domain/calendar/services/EventParserService');
 const { ChatGoogleGenerativeAI } = require('@langchain/google-genai');
@@ -94,6 +94,7 @@ class LangchainAgentPlatform extends IAgentExecutionPlatform {
 
         // Combined Event Parser + Calendar Tool
         if (this.eventParserService && this.calendarService) {
+            // Combined Event Parser + Calendar Create Event Tool
             const createEventTool = new DynamicTool({
                 name: 'create_calendar_event',
                 description: `Use this tool to create calendar events from natural language text.
@@ -151,6 +152,84 @@ class LangchainAgentPlatform extends IAgentExecutionPlatform {
                 }
             });
             tools.push(createEventTool);
+
+            // Combined Event Query Parser + Calendar Get Events Tool
+            const fetchEventsTool = new DynamicTool({
+                name: 'fetch_calendar_events',
+                description: `Use this tool to fetch and retrieve calendar events from natural language queries.
+                    
+                    WHEN TO USE THIS TOOL:
+                    - When user asks about existing events: "what events do I have today?", "show me my calendar", "what's on my schedule"
+                    - When user asks about upcoming events: "what upcoming events do I have?", "what's coming up?", "future events"
+                    - When user asks about specific time periods: "this weekend's events", "events this week", "meetings this month"
+                    - When user asks about availability: "when am I free?", "what's my availability?", "when do I have time?"
+                    - When user asks about specific people or events: "when does Juan come back?", "when is the team meeting?"
+                    
+                    INPUT EXAMPLES:
+                    - "what upcoming events do i have?"
+                    - "show me today's calendar"
+                    - "what's on my schedule this weekend?"
+                    - "when do I have meetings this week?"
+                    - "what events are coming up?"
+                    - "my calendar for tomorrow"
+                    - "when am I free next week?"
+                    
+                    The tool will parse the natural language query, determine the appropriate time range, and return a JSON list of all matching calendar events with their details (id, summary, start time, end time, all-day status, description).
+                    
+                    ALWAYS use this tool when the user is asking about existing or upcoming calendar events, availability, or schedule information.`,
+                func: async (input) => {
+                    console.log("🛠️  [TOOL] fetch_calendar_events called");
+                    console.log("   📝 Input:", input);
+
+                    try {
+                        // Step 1: Parse the natural language input
+                        console.log("   🔍 Step 1: Parsing query details...");
+                        const timezone = this.calendarContext?.calendarContext?.timezone;
+                        const eventQuery = await this.eventParserService.parseEventQuery(input, timezone);
+                        if (!eventQuery) {
+                            console.log("   ❌ Step 1: Failed to parse query details");
+                            return 'ERROR: Failed to parse query details. Please provide clearer information about what events you want to see.';
+                        }
+                        console.log("   ✅ Step 1: Query parsed successfully");
+                        console.log("      📅 TimeMin:", eventQuery.details.timeMin);
+                        console.log("      📅 TimeMax:", eventQuery.details.timeMax);
+
+                        // Step 2: Get calendar context from config
+                        const calendarContext = this.calendarContext;
+                        if (!calendarContext) {
+                            console.log("   ❌ Step 2: Calendar context not available");
+                            return 'ERROR: Calendar context was not available for this operation. The calendar service is not properly configured.';
+                        }
+                        console.log("   ✅ Step 2: Calendar context ready");
+
+                        // Step 3: Fetch the calendar events
+                        console.log("   🔄 Step 3: Fetching calendar events...");
+                        const result = await this.calendarService.getEvents(calendarContext, eventQuery.details);
+
+                        if (!result.success) {
+                            console.log("   ❌ Failed:", result.error);
+                            return `ERROR: ${result.error}`;
+                        }
+
+                        // Normalise events for the LLM
+                        const eventsForLLM = (result.data ?? []).map(evt => ({
+                            id: evt.id,
+                            summary: evt.summary,
+                            start: evt.start,         // ISO-8601 string
+                            end: evt.end,           // ISO-8601 string
+                            allDay: !!evt.allDay,
+                            description: evt.description || ""
+                        }));
+
+                        // Return JSON the agent can iterate/filter on
+                        return JSON.stringify(eventsForLLM, null, 2);
+                    } catch (error) {
+                        console.log("   💥 Tool execution error:", error.message);
+                        return `ERROR: Unexpected error fetching calendar events: ${error.message}`;
+                    }
+                }
+            });
+            tools.push(fetchEventsTool);
         }
 
         return tools;

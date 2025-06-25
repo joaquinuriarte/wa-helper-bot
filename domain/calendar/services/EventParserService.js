@@ -1,5 +1,6 @@
 // domain/services/EventParserService.js
 const DomainEvent = require('../models/DomainEvent');
+const DomainEventQuery = require('../models/DomainEventQuery');
 const IEventParserInfrastructure = require('../interfaces/IEventParserInfrastructure');
 
 /**
@@ -26,6 +27,16 @@ class EventParserService {
      */
     async parseEventDetails(text, timezone = null) {
         return this._eventParserInfrastructure.parseEventDetails(text, timezone);
+    }
+
+    /**
+     * Parses natural language text into a structured DomainEvent object for querying.
+     * @param {string} text - The raw string to parse.
+     * @param {string} timezone - Optional timezone for date calculations (e.g., 'America/Los_Angeles')
+     * @returns {Promise<DomainEvent|null>} - A promise that resolves to a DomainEvent object or null if parsing fails.
+     */
+    async parseEventQuery(text, timezone = null) {
+        return this._eventParserInfrastructure.parseEventQuery(text, timezone);
     }
 }
 
