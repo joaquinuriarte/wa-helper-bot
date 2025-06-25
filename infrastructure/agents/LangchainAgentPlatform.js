@@ -114,11 +114,11 @@ class LangchainAgentPlatform extends IAgentExecutionPlatform {
                             return 'ERROR: Failed to parse event details. Please provide clearer information about the event.';
                         }
                         console.log("   ✅ Step 1: Event parsed successfully");
+                        console.log("      📝 Title:", eventDetails.details.title);
                         console.log("      📅 Date:", eventDetails.details.date);
-                        console.log("      🕐 Time:", eventDetails.details.time);
-                        console.log("      🕐 Duration:", eventDetails.details.durationHours);
+                        console.log("      🕐 startTime:", eventDetails.details.startTime);
+                        console.log("      🕐 endTime:", eventDetails.details.endTime);
                         console.log("      📝 Description:", eventDetails.details.description);
-                        console.log("      📝 Type:", eventDetails.type);
 
                         // Step 2: Get calendar context from config
                         //TODO: this is a temporary fix to get the calendar context. We need to find a better way to do this.
@@ -139,7 +139,7 @@ class LangchainAgentPlatform extends IAgentExecutionPlatform {
 
                         if (result.success) {
                             console.log("   ✅ Step 3: Calendar event created successfully");
-                            return `SUCCESS: Calendar event "${eventDetails.type}" has been created for ${eventDetails.details.date} at ${eventDetails.details.time} (${eventDetails.details.durationHours} hour duration).`;
+                            return `SUCCESS: Calendar event "${eventDetails.title}" has been created for ${eventDetails.details.date} from ${eventDetails.details.startTimetime} to (${eventDetails.details.endTime}.`;
                         } else {
                             console.log("   ❌ Step 3: Failed to create calendar event:", result.error);
                             return `ERROR: Failed to create calendar event: ${result.error}`;
