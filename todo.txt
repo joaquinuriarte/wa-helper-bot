@@ -1,14 +1,13 @@
 1. Que funcione add y fetch (simple, cuando llega x)
     - (DONE) Create Event
-        - Este ejemplo: "Create a calendar event for a visit to Plaza with irene in two days between 10am and 2pm" 
-            - Fails to add proper event title in calendar (escribio "Create a calendar event" en type gods knows why)
-            - Sets duration to 1 hour (prmpt problem probably)
     - (IN PROGRESS) Fetch Event
 2. Pulir
     - Spanish (ver notion)
     - also que si le hablan y ya responda como LLM. no solo calendar manager. 
     - dale personalidad (script o famous quotes lines from a movie person and add to sys prompt). 
     - tiene que require all params para calendar. si no se lo dieron, que lo pida again. does this need memory?
+    - test add and fetch (cuando llega x, de muchas maneras)
+        - ask gpt to create many test prompts ordered by difficulty 
 3. Deploy y release
 
 
@@ -24,7 +23,7 @@
 4. Open router pa usar mas barato. Currently estoy usando Langchain wrapper para gemini 1.5 pro. Uso en agent and event parser. Event parser using zod for structured output.
 5. GoogleCalendar MCP
 6. Memory would go in callModel function inside compileModel inside LangchainAgentPlatform inside infra/agents
-
+- que pueda construct description and events fields de ultimos textos de chat... 
 
 
 
