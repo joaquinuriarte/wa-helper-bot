@@ -4,6 +4,8 @@ const DomainEventQuery = require('../../domain/calendar/models/DomainEventQuery'
 const DomainEventResult = require('../../domain/calendar/models/DomainEventResult');
 const DomainEventUpdates = require('../../domain/calendar/models/DomainEventUpdates');
 const CalendarContext = require('../../domain/calendar/models/CalendarContext');
+const { _combineDateAndTime } = require('./utils/utils');
+
 
 class GoogleCalendarInfrastructure extends ICalendarInfrastructure {
     constructor(calendarClient) {
@@ -23,14 +25,14 @@ class GoogleCalendarInfrastructure extends ICalendarInfrastructure {
     async createEvent(context, event) {
         try {
             const googleEvent = {
-                summary: event.type,
+                summary: event.details.title,
                 description: event.details?.description || '',
                 start: {
-                    dateTime: this._combineDateAndTime(event.details.date, event.details.time),
+                    dateTime: _combineDateAndTime(event.details.date, event.details.startTime),
                     timeZone: context.calendarContext.timezone,
                 },
                 end: {
-                    dateTime: this._combineDateAndTime(event.details.date, event.details.time, event.details.durationHours),
+                    dateTime: _combineDateAndTime(event.details.date, event.details.endTime),
                     timeZone: context.calendarContext.timezone,
                 },
             };
@@ -103,11 +105,11 @@ class GoogleCalendarInfrastructure extends ICalendarInfrastructure {
                 summary: updates.updates.type,
                 description: updates.updates.details?.description,
                 start: updates.updates.details?.date && updates.updates.details?.time ? {
-                    dateTime: this._combineDateAndTime(updates.updates.details.date, updates.updates.details.time),
+                    dateTime: _combineDateAndTime(updates.updates.details.date, updates.updates.details.time),
                     timeZone: context.calendarContext.timezone,
                 } : undefined,
                 end: updates.updates.details?.date && updates.updates.details?.time ? {
-                    dateTime: this._combineDateAndTime(updates.updates.details.date, updates.updates.details.time, updates.updates.details.durationHours),
+                    dateTime: _combineDateAndTime(updates.updates.details.date, updates.updates.details.time, updates.updates.details.durationHours),
                     timeZone: context.calendarContext.timezone,
                 } : undefined,
             };
@@ -152,34 +154,6 @@ class GoogleCalendarInfrastructure extends ICalendarInfrastructure {
         } catch (error) {
             return new DomainEventResult(false, null, error.message);
         }
-    }
-
-    _combineDateAndTime(dateString, timeString, hoursToAdd = 0) {
-        // dateString is like "2025-05-23"
-        // timeString is like "14:00"
-        // hoursToAdd is a number, e.g., 1
-
-        const [year, month, day] = dateString.split('-').map(Number);
-        const [hour, minute] = timeString.split(':').map(Number);
-
-        // Create a Date object using Date.UTC to ensure all components are treated as UTC parts.
-        // Month is 0-indexed for Date.UTC (0 for January, 11 for December).
-        const dateObj = new Date(Date.UTC(year, month - 1, day, hour, minute));
-
-        if (hoursToAdd > 0) {
-            // Add hours in UTC to handle date rollovers correctly
-            dateObj.setUTCHours(dateObj.getUTCHours() + parseFloat(hoursToAdd));
-        }
-
-        // Extract components from the UTC date object and format them as a local time string.
-        // This string, when sent to Google Calendar with a specific timeZone, will be interpreted correctly.
-        const resYear = dateObj.getUTCFullYear();
-        const resMonth = String(dateObj.getUTCMonth() + 1).padStart(2, '0'); // getUTCMonth is 0-indexed
-        const resDay = String(dateObj.getUTCDate()).padStart(2, '0');
-        const resHour = String(dateObj.getUTCHours()).padStart(2, '0');
-        const resMinute = String(dateObj.getUTCMinutes()).padStart(2, '0');
-
-        return `${resYear}-${resMonth}-${resDay}T${resHour}:${resMinute}:00`;
     }
 }
 
