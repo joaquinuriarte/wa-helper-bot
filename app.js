@@ -21,12 +21,24 @@ const EventParserInfrastructure = require('./infrastructure/calendar/EventParser
 const LLMSessionManager = require('./infrastructure/calendar/sessionManagers/LLMSessionManager');
 const LangchainAgentPlatform = require('./infrastructure/agents/LangchainAgentPlatform');
 const systemPrompt = require('./infrastructure/agents/prompts/systemPrompt');
-const apiKeyPath = './env/gemini-api-key.json';
 
 
 // ============= CONFIGURATION =============
-const BOT_ID = "17872949783" // It randomly changed back to phone number instead of string "254232636694646" //"17872949783"; // Bot ID for WhatsApp Abuela Home Number (It randomly changed to new string)
-const credentials = require('./env/lucho-460500-cdb4b1f2ffe0.json'); // Google Calendar credentials
+let credentials;
+let BOT_ID;
+let apiKeyPath;
+
+if (process.env.NODE_ENV === 'production') {
+    // Production: Use environment variable
+    credentials = JSON.parse(process.env.GOOGLE_CALENDAR_CREDENTIALS);
+    BOT_ID = process.env.BOT_ID;
+    apiKeyPath = process.env.GEMINI_API_KEY_PATH;
+} else {
+    // Development: Use local file
+    credentials = require('./env/lucho-460500-cdb4b1f2ffe0.json');
+    BOT_ID = "17872949783"; // It randomly changed back to phone number instead of string "254232636694646" //"17872949783"; // Bot ID for WhatsApp Abuela Home Number (It randomly changed to new string)
+    apiKeyPath = './env/gemini-api-key.json';
+}
 
 // ============= GRACEFUL SHUTDOWN HANDLERS =============
 process.on('SIGINT', async () => {
