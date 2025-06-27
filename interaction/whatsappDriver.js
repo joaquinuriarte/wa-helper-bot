@@ -65,6 +65,7 @@ class WhatsappDriver extends IInteractionPort {
                         return;
                     }
                     await this.bot.handleMessage(message);
+                    console.log('Message handled successfully');
                 }
             } catch (error) {
                 console.error('Error handling message:', error);

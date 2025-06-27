@@ -41,3 +41,6 @@ THEN
 - No puedes decirle "add X after Y" pq no puede fetch y para get things for X
 
 
+Deploying
+1. Set up persitant session
+2. Monitoring of logs. Whatsapp changes UI y hay que estar pendiente y flag para poder fix. 
