@@ -26,18 +26,19 @@ const systemPrompt = require('./infrastructure/agents/prompts/systemPrompt');
 // ============= CONFIGURATION =============
 let credentials;
 let BOT_ID;
-let apiKeyPath;
+let apiKey;
 
 if (process.env.NODE_ENV === 'production') {
-    // Production: Use environment variable
+    // Production: Use environment variables
     credentials = JSON.parse(process.env.GOOGLE_CALENDAR_CREDENTIALS);
     BOT_ID = process.env.BOT_ID;
-    apiKeyPath = process.env.GEMINI_API_KEY_PATH;
+    apiKey = process.env.GEMINI_API_KEY;
 } else {
-    // Development: Use local file
+    // Development: Use local files
     credentials = require('./env/lucho-460500-cdb4b1f2ffe0.json');
     BOT_ID = "17872949783"; // It randomly changed back to phone number instead of string "254232636694646" //"17872949783"; // Bot ID for WhatsApp Abuela Home Number (It randomly changed to new string)
-    apiKeyPath = './env/gemini-api-key.json';
+    const apiKeyData = require('./env/gemini-api-key.json');
+    apiKey = apiKeyData.apiKey;
 }
 
 // ============= GRACEFUL SHUTDOWN HANDLERS =============
@@ -74,7 +75,7 @@ async function main() {
     const calendarClient = GoogleCalendarSessionManager.createClient(credentials);
     const calendarInfra = new GoogleCalendarInfrastructure(calendarClient);
     // Create and configure Langchain agent infrastructure
-    const llm_event_parser = await LLMSessionManager.createLLM(apiKeyPath);
+    const llm_event_parser = await LLMSessionManager.createLLM(apiKey);
     const eventParserInfra = new EventParserInfrastructure(llm_event_parser);
 
 
@@ -83,7 +84,7 @@ async function main() {
     const eventParserService = new EventParserService(eventParserInfra);
 
     // ============= AGENT INFRASTRUCTURE LAYER SETUP =============
-    const langchainAgentPlatform = new LangchainAgentPlatform([calendarService, eventParserService], apiKeyPath, systemPrompt);
+    const langchainAgentPlatform = new LangchainAgentPlatform([calendarService, eventParserService], apiKey, systemPrompt);
     await langchainAgentPlatform.createAgent();
 
     // ============= AGENT DOMAIN LAYER SETUP =============

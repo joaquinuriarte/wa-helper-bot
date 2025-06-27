@@ -8,8 +8,6 @@ const { DynamicTool } = require('@langchain/core/tools');
 const CalendarService = require('../../domain/calendar/services/CalendarService');
 const EventParserService = require('../../domain/calendar/services/EventParserService');
 const { ChatGoogleGenerativeAI } = require('@langchain/google-genai');
-const fs = require('fs');
-const path = require('path');
 
 /**
  * Langchain implementation of the IAgentExecutionPlatform interface.
@@ -18,16 +16,16 @@ const path = require('path');
 class LangchainAgentPlatform extends IAgentExecutionPlatform {
     /**
      * @param {Array} domainInstances - Array of domain instances (e.g., [CalendarService, EventParserService])
-     * @param {String} apiKeyPath - The path to the API key file
+     * @param {String} apiKey - The Gemini API key
      * @param {string} systemPrompt - The system prompt to guide the agent's behavior
      */
-    constructor(domainInstances, apiKeyPath, systemPrompt) {
+    constructor(domainInstances, apiKey, systemPrompt) {
         super();
         if (!Array.isArray(domainInstances) || domainInstances.length === 0) {
             throw new Error('At least one infrastructure instance must be provided');
         }
-        if (!apiKeyPath) {
-            throw new Error('apiKeyPath must be provided');
+        if (!apiKey) {
+            throw new Error('API key must be provided');
         }
         if (!systemPrompt) {
             throw new Error('System prompt must be provided');
@@ -40,7 +38,7 @@ class LangchainAgentPlatform extends IAgentExecutionPlatform {
         this.eventParserService = domainInstances.find(instance =>
             instance instanceof EventParserService
         );
-        this.apiKeyPath = apiKeyPath;
+        this.apiKey = apiKey;
         this.systemPrompt = systemPrompt;
         this.agent = null;
         this.calendarContext = null;
@@ -49,18 +47,17 @@ class LangchainAgentPlatform extends IAgentExecutionPlatform {
     async createAgent() {
         const tools = await this.createTools();
 
-        const model = await this.createLLM(this.apiKeyPath, tools);
+        const model = await this.createLLM(this.apiKey, tools);
 
         const app = await this.compileAgent(model, tools);
 
         this.agent = app;
     }
 
-    async createLLM(apiKeyPath, tools) {
-        if (!apiKeyPath) {
-            throw new Error('API key path must be provided');
+    async createLLM(apiKey, tools) {
+        if (!apiKey) {
+            throw new Error('API key must be provided');
         }
-        const apiKey = await this._getApiKey(apiKeyPath);
         // Instantiate LangChain's ChatGoogleGenerativeAI model
         const llm = new ChatGoogleGenerativeAI({
             model: 'gemini-1.5-pro',
@@ -68,25 +65,6 @@ class LangchainAgentPlatform extends IAgentExecutionPlatform {
             temperature: 0,
         }).bindTools(tools);
         return llm;
-    }
-
-    /**
-     * Retrieves the API key from the configuration file
-     * @private
-     * @param {string} apiKeyPath - Path to the API key file
-     * @returns {Promise<string>} The API key
-     */
-    async _getApiKey(apiKeyPath) {
-        try {
-            const resolvedApiKeyPath = path.resolve(apiKeyPath);
-            const apiKeyData = JSON.parse(fs.readFileSync(resolvedApiKeyPath, 'utf8'));
-            if (!apiKeyData.apiKey) {
-                throw new Error('API key is empty in the configuration file');
-            }
-            return apiKeyData.apiKey;
-        } catch (error) {
-            throw new Error(`Failed to read Gemini API key: ${error.message}`);
-        }
     }
 
     async createTools() {
