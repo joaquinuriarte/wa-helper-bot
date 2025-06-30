@@ -21,41 +21,58 @@ class EventParserInfrastructure extends IEventParserInfrastructure {
     }
 
     /**
-     * Parses natural language text into a structured DomainEvent using LLM.
-     * @param {string} text - The raw string to parse.
-     * @param {string} timezone - Optional timezone for date calculations (e.g., 'America/Los_Angeles')
-     * @returns {Promise<DomainEvent|null>} - A promise that resolves to a DomainEvent object or null if parsing fails.
+     * Classifies the event type from natural language text
+     * @param {string} text - The text to classify
+     * @returns {Promise<string>} - 'timed', 'allDay', or 'unclear'
      */
-    async parseEventDetails(text, timezone) {  //TODO: Instead of returning null, we should return the error message somehow. -> By returning a DomainEventResult object.
+    async _classifyEventType(text) {
+        const ClassificationSchema = z.object({
+            eventType: z.enum(['timed', 'allDay', 'unclear']).describe("Classification of the event type"),
+            confidence: z.number().min(0).max(1).describe("Confidence level of the classification"),
+            reasoning: z.string().describe("Brief explanation of the classification")
+        });
+
+        const prompt = `Classify the following text as one of these event types:
+
+        1. "timed" - Event has specific start/end times (e.g., "meeting at 2pm", "appointment from 10-12")
+        2. "allDay" - Event spans full days without specific times (e.g., "vacation next weekend", "conference all day", "holiday")
+        3. "unclear" - Insufficient information to determine
+
+        Look for keywords like:
+        - Timed: "at", "from", "to", "between", "until", "o'clock", "am/pm", specific times
+        - All-day: "all day", "all-day", "vacation", "holiday", "conference", "trip", "weekend", "multi-day"
+
+        Text: "${text}"
+
+        Return the classification with confidence level and reasoning.`;
+
         try {
-            // Handle empty or invalid input early
-            if (!text || typeof text !== 'string' || text.trim() === '') {
-                return null;
-            }
+            const structuredLLM = this.llm.withStructuredOutput(ClassificationSchema);
+            const response = await structuredLLM.invoke(prompt);
+            return response.eventType;
+        } catch (error) {
+            console.error('Error classifying event type:', error);
+            return 'unclear';
+        }
+    }
 
-            // Get current date in the specified timezone or return error if no timezone provided
-            let currentDate;
-            let currentDayName;
-            if (timezone) {
-                try {
-                    const dateInfo = getCurrentDateInfo(timezone);
-                    currentDate = dateInfo.currentDate;
-                    currentDayName = dateInfo.currentDayName;
-                } catch (error) {
-                    console.log("❌ Error getting timezone date info:", error.message);
-                    return null;
-                }
-            } else {
-                // Return null if no timezone provided (parsing failure)
-                console.log("❌ No timezone provided. Timezone is required for proper date calculations.");
-                return null;
-            }
+    /**
+     * Parses a timed event with specific start/end times
+     * @param {string} text - The text to parse
+     * @param {string} timezone - The timezone for date calculations
+     * @returns {Promise<DomainEvent|null>} - Parsed event or null if failed
+     */
+    async _parseTimedEvent(text, timezone) {
+        try {
+            // Get current date in the specified timezone
+            const dateInfo = getCurrentDateInfo(timezone);
+            const currentDate = dateInfo.currentDate;
 
-            // Define the structured output schema using Zod
-            const EventSchema = z.object({
-                success: z.boolean().describe("Whether the text contains valid event information with sufficient time details"),
+            // Define the structured output schema for timed events
+            const TimedEventSchema = z.object({
+                success: z.boolean().describe("Whether the text contains valid timed event information"),
                 data: z.object({
-                    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe("Event date in YYYY-MM-DD format"),
+                    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe("Event date in YYYY-MM-DD format"),
                     startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).describe("Event start time in HH:MM format (24-hour)"),
                     endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).optional().describe("Event end time in HH:MM format (24-hour) - REQUIRED when hasDuration is false"),
                     duration: z.number().optional().describe("Event duration in hours - REQUIRED when hasDuration is true"),
@@ -67,7 +84,7 @@ class EventParserInfrastructure extends IEventParserInfrastructure {
             });
 
             const timezoneInfo = timezone ? ` in timezone ${timezone}` : '';
-            const prompt = `Parse the following text into event details. Extract date, start time, end time, duration, description, and title.
+            const prompt = `Parse the following text into timed event details. Extract date, start time, end time, duration, description, and title.
                 Current date${timezoneInfo} is ${currentDate}. Use this as reference for relative dates like "tomorrow" or "next week".
                 
                 TIME HANDLING RULES:
@@ -99,13 +116,11 @@ class EventParserInfrastructure extends IEventParserInfrastructure {
                 
                 Text to parse: "${text}"`;
 
-            // Use structured output with LangChain
-            const structuredLLM = this.llm.withStructuredOutput(EventSchema);
+            const structuredLLM = this.llm.withStructuredOutput(TimedEventSchema);
             const response = await structuredLLM.invoke(prompt);
 
-            // Check if the LLM indicated failure
             if (!response.success) {
-                console.log('LLM indicated parsing failure:', response.error);
+                console.log('LLM indicated timed event parsing failure:', response.error);
                 return null;
             }
 
@@ -114,33 +129,175 @@ class EventParserInfrastructure extends IEventParserInfrastructure {
             // Calculate endTime if hasDuration is true and endTime doesn't exist
             let calculatedEndTime = parsedDetails.endTime;
             if (parsedDetails.hasDuration && !parsedDetails.endTime) {
-                // Calculate end time by adding duration to start time
-                const combinedDateTime = _combineDateAndTime(parsedDetails.date, parsedDetails.startTime, parsedDetails.duration);
-                // Extract just the time part (HH:MM) from the combined datetime
+                const combinedDateTime = _combineDateAndTime(parsedDetails.startDate, parsedDetails.startTime, parsedDetails.duration);
                 calculatedEndTime = combinedDateTime.split('T')[1].substring(0, 5);
             }
 
             // Create DomainEventDetails
             const eventDetails = new DomainEventDetails(
                 parsedDetails.title,
-                parsedDetails.date,
+                parsedDetails.startDate,
+                false, // isAllDay = false for timed events
                 parsedDetails.startTime,
                 calculatedEndTime,
-                parsedDetails.description
+                parsedDetails.description,
+                parsedDetails.startDate // endDate = same as startDate for single-day timed events
             );
 
-            // Create and return DomainEvent
             return new DomainEvent(
-                null, // ID is null as it's assigned by the calendar service
-                "Add", // Describes type of event (add, update, delete, fetch) //TODO: Add enum control for this.
+                null,
+                "Add",
                 eventDetails
             );
+        } catch (error) {
+            console.error('Error parsing timed event:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Parses an all-day event spanning full days
+     * @param {string} text - The text to parse
+     * @param {string} timezone - The timezone for date calculations
+     * @returns {Promise<DomainEvent|null>} - Parsed event or null if failed
+     */
+    async _parseAllDayEvent(text, timezone) {
+        try {
+            // Get current date in the specified timezone
+            const dateInfo = getCurrentDateInfo(timezone);
+            const currentDate = dateInfo.currentDate;
+
+            // Define the structured output schema for all-day events
+            const AllDayEventSchema = z.object({
+                success: z.boolean().describe("Whether the text contains valid all-day event information"),
+                data: z.object({
+                    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe("Event start date in YYYY-MM-DD format"),
+                    endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe("Event end date in YYYY-MM-DD format (defaults to startDate for single day events)"),
+                    description: z.string().describe("Be thorough in the description. Include all the details of the event provided to you in a polished and clean way."),
+                    title: z.string().describe("Event Title. Should be a short title of the event."),
+                    isMultiDay: z.boolean().describe("Whether this event spans multiple days")
+                }).optional().describe("Event data (only present if success is true)"),
+                error: z.string().optional().describe("Error message (only present if success is false)")
+            });
+
+            const timezoneInfo = timezone ? ` in timezone ${timezone}` : '';
+            const prompt = `Parse the following text into all-day event details. Extract start date, end date, description, and title.
+                Current date${timezoneInfo} is ${currentDate}. Use this as reference for relative dates like "tomorrow" or "next week".
+                
+                ALL-DAY EVENT HANDLING RULES:
+                1. For single day events (e.g., "holiday tomorrow", "conference all day Friday"):
+                   - Set startDate = the event date
+                   - Set endDate = same as startDate
+                   - Set isMultiDay = false
+                
+                2. For multi-day events (e.g., "vacation next week", "conference June 15-17"):
+                   - Set startDate = first day of the event
+                   - Set endDate = last day of the event
+                   - Set isMultiDay = true
+                
+                3. For events with relative dates:
+                   - "next week" = 7 days from current date
+                   - "this weekend" = Friday to Sunday of current week
+                   - "next month" = first day to last day of next month
+                
+                EXAMPLES:
+                - "vacation tomorrow" → (Assuming today is 2025-06-24) startDate="2025-06-25", endDate="2025-06-25", isMultiDay=false
+                - "conference all day Friday" → (Assuming today is 2025-06-24, tuesday) startDate="2025-06-27", endDate="2025-06-27", isMultiDay=false
+                - "vacation next weekend" → (Assuming today is 2025-06-24) startDate="2025-07-04", endDate="2025-07-06", isMultiDay=true
+                - "conference June 15-17" → startDate="2025-06-15", endDate="2025-06-17", isMultiDay=true
+                
+                Rules:
+                - If the text contains valid all-day event information, set success to true
+                - If the text is empty, unclear, or missing date information, set success to false and provide an error message
+                - Always return valid structured data matching the schema
+                - When calculating relative dates, use the current date as reference
+                
+                Text to parse: "${text}"`;
+
+            const structuredLLM = this.llm.withStructuredOutput(AllDayEventSchema);
+            const response = await structuredLLM.invoke(prompt);
+
+            if (!response.success) {
+                console.log('LLM indicated all-day event parsing failure:', response.error);
+                return null;
+            }
+
+            const parsedDetails = response.data;
+
+            // Create DomainEventDetails with all-day event structure
+            // Note: This assumes DomainEventDetails has been updated to support all-day events
+            const eventDetails = new DomainEventDetails(
+                parsedDetails.title,
+                parsedDetails.startDate,
+                true, // isAllDay = true for all-day events
+                null, // startTime is null for all-day events
+                null, // endTime is null for all-day events
+                parsedDetails.description,
+                parsedDetails.endDate || parsedDetails.startDate // endDate for multi-day events
+            );
+
+            return new DomainEvent(
+                null,
+                "Add",
+                eventDetails
+            );
+        } catch (error) {
+            console.error('Error parsing all-day event:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Parses natural language text into a structured DomainEvent using LLM.
+     * @param {string} text - The raw string to parse.
+     * @param {string} timezone - Optional timezone for date calculations (e.g., 'America/Los_Angeles')
+     * @returns {Promise<DomainEvent|null>} - A promise that resolves to a DomainEvent object or null if parsing fails.
+     */
+    async parseEventDetails(text, timezone) {  //TODO: Instead of returning null, we should return the error message somehow. -> By returning a DomainEventResult object.
+        try {
+            // Handle empty or invalid input early
+            if (!text || typeof text !== 'string' || text.trim() === '') {
+                return null;
+            }
+
+            // Get current date in the specified timezone or return error if no timezone provided
+            if (!timezone) {
+                console.log("❌ No timezone provided. Timezone is required for proper date calculations.");
+                return null;
+            }
+
+            // Stage 1: Quick classification
+            const eventType = await this._classifyEventType(text);
+
+            // Stage 2: Specialized parsing with fallback
+            try {
+                if (eventType === 'timed') {
+                    return await this._parseTimedEvent(text, timezone);
+                } else if (eventType === 'allDay') {
+                    return await this._parseAllDayEvent(text, timezone);
+                } else {
+                    // Stage 3: Fallback to unified parser (try timed first, then all-day)
+                    const timedResult = await this._parseTimedEvent(text, timezone);
+                    if (timedResult) {
+                        return timedResult;
+                    }
+
+                    const allDayResult = await this._parseAllDayEvent(text, timezone);
+                    if (allDayResult) {
+                        return allDayResult;
+                    }
+
+                    return null;
+                }
+            } catch (error) {
+                // Stage 4: Error recovery
+                return null;
+            }
         } catch (error) {
             console.error('Error parsing event details:', error);
             return null;
         }
     }
-
 
     /**
      * Parses natural language text into a structured DomainEventQuery using LLM.

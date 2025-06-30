@@ -94,9 +94,22 @@ class LangchainAgentPlatform extends IAgentExecutionPlatform {
                         }
                         console.log("   ✅ Step 1: Event parsed successfully");
                         console.log("      📝 Title:", eventDetails.details.title);
-                        console.log("      📅 Date:", eventDetails.details.date);
-                        console.log("      🕐 startTime:", eventDetails.details.startTime);
-                        console.log("      🕐 endTime:", eventDetails.details.endTime);
+                        console.log("      📅 Date:", eventDetails.details.startDate);
+
+                        if (eventDetails.details.isAllDay) {
+                            // Log all-day event details
+                            console.log("      🌅 All-day event");
+                            if (eventDetails.details.startDate === eventDetails.details.endDate) {
+                                console.log("      📅 Single day event");
+                            } else {
+                                console.log("      📅 Multi-day event from", eventDetails.details.startDate, "to", eventDetails.details.endDate);
+                            }
+                        } else {
+                            // Log timed event details
+                            console.log("      🕐 startTime:", eventDetails.details.startTime);
+                            console.log("      🕐 endTime:", eventDetails.details.endTime);
+                        }
+
                         console.log("      📝 Description:", eventDetails.details.description);
 
                         // Step 2: Get calendar context from config
@@ -118,7 +131,22 @@ class LangchainAgentPlatform extends IAgentExecutionPlatform {
 
                         if (result.success) {
                             console.log("   ✅ Step 3: Calendar event created successfully");
-                            return `SUCCESS: Calendar event "${eventDetails.title}" has been created for ${eventDetails.details.date} from ${eventDetails.details.startTimetime} to (${eventDetails.details.endTime}.`;
+
+                            // Create appropriate success message based on event type
+                            let successMessage;
+                            if (eventDetails.details.isAllDay) {
+                                // All-day event message
+                                if (eventDetails.details.startDate === eventDetails.details.endDate) {
+                                    successMessage = `SUCCESS: All-day calendar event "${eventDetails.title}" has been created for ${eventDetails.details.startDate}.`;
+                                } else {
+                                    successMessage = `SUCCESS: Multi-day calendar event "${eventDetails.title}" has been created from ${eventDetails.details.startDate} to ${eventDetails.details.endDate}.`;
+                                }
+                            } else {
+                                // Timed event message
+                                successMessage = `SUCCESS: Calendar event "${eventDetails.title}" has been created for ${eventDetails.details.startDate} from ${eventDetails.details.startTime} to ${eventDetails.details.endTime}.`;
+                            }
+
+                            return successMessage;
                         } else {
                             console.log("   ❌ Step 3: Failed to create calendar event:", result.error);
                             return `ERROR: Failed to create calendar event: ${result.error}`;
@@ -193,13 +221,16 @@ class LangchainAgentPlatform extends IAgentExecutionPlatform {
                         const eventsForLLM = (result.data ?? []).map(evt => ({
                             id: evt.id,
                             summary: evt.summary,
-                            start: evt.start,         // ISO-8601 string
-                            end: evt.end,           // ISO-8601 string
-                            allDay: !!evt.allDay,
-                            description: evt.description || ""
+                            startDate: evt.details.startDate,
+                            endDate: evt.details.endDate,
+                            startTime: evt.details.startTime,
+                            endTime: evt.details.endTime,
+                            isAllDay: evt.details.isAllDay,
+                            description: evt.details.description || ""
                         }));
 
                         // Return JSON the agent can iterate/filter on
+                        console.log("   ✅ Step 3: Events fetched successfully: ", JSON.stringify(eventsForLLM, null, 2));
                         return JSON.stringify(eventsForLLM, null, 2);
                     } catch (error) {
                         console.log("   💥 Tool execution error:", error.message);

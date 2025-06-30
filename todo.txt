@@ -1,16 +1,31 @@
+0. All day events   
+    - ✅ have parser determine and flag
+    - ✅ add to data model
+    - ✅ modify API to use it
+    - ✅ add to prompts, this should be default
+    - test
+        --- test weekend thing. pudiese crear tabla con all days mapped to weekend
+            -- como day es exclusive, sumamos pero hay que restar 1 en all day too when fetching
+            -- default info, si dicen me voy de viaje este weekend, solo usa nombre user y usa name trip. 
+            -- ver montehiedra. hay repeated descriptions de title y event description en parser. almacena eso and import and common part of the prompt as well. which is this issue. 
+    - wrap parser results in a result object to propagate error msg. then unnest before sending to calendar
+    - ✅ does this affect fetch? yes but fixed
+    
+    --- tests update and run
 1. Que funcione add y fetch (simple, cuando llega x)
     - (DONE) Create Event
         - @Lucho add a party for saturday night in Diego’s house -> I was unable to create the event because the time was not specific enough. Could you please specify the time for the party on Saturday night? For example, you could say "Saturday at 8pm".
             - debe solo ask what time ish. y also maybe use best judgement sometimes? 
         - @Luhco add a party for saturday night in Diego’s house between 8pm and 1am -> "I couldn't create the event. The time range you specified (8pm Saturday - 1am Saturday) appears to be empty. Did you mean 1am Sunday? Please try again providing a valid time range." 
             - usa logica
-        - 
+        - Env mayormente va a ser all day events... 
     - (IN PROGRESS) Fetch Event
         - le mande What upcoming events do i have: me dijo: "OK. I found two upcoming events on your calendar. Do you want to know more about them?" -> que lo diga y ya (also do i have anything this weekend, me dice si tienes 1 event.)
         - @Lucho do i have anything this weekend? -> date range fue sabado a domingo...
+        - any events coming up? no puede access event details...
 2. Pulir
     - event parsers should return un domainEventResult object con success o failure y asi podemos propagate el error msg pa que agent le diga a user
-    - Spanish (ver notion)
+    - Spanish
     - also que si le hablan y ya responda como LLM. no solo calendar manager. 
     - dale personalidad (script o famous quotes lines from a movie person and add to sys prompt). 
     - tiene que require all params para calendar. si no se lo dieron, que lo pida again. does this need memory?
@@ -18,6 +33,8 @@
         - ask gpt to create many test prompts ordered by difficulty (ones gc might use)
         - add prompt examples relavant to how it will be used
 3. Deploy y release
+    - add new calnedar and new handler for it...
+    - test it
 
 THEN
 1. MCP Google Calendar might be way easier. Check it out. Ver TODOs en calendar infra. 

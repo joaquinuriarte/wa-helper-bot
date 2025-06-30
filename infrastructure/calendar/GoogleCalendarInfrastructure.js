@@ -22,35 +22,72 @@ class GoogleCalendarInfrastructure extends ICalendarInfrastructure {
      * @param {DomainEvent} event - The event to create
      * @returns {Promise<DomainEventResult>} The result of the operation
      */
-    async createEvent(context, event) { //TODO: Add ability to create all-day events.
+    async createEvent(context, event) {
         try {
-            const googleEvent = {
+            let googleEvent = {
                 summary: event.details.title,
                 description: event.details?.description || '',
-                start: {
-                    dateTime: _combineDateAndTime(event.details.date, event.details.startTime),
-                    timeZone: context.calendarContext.timezone,
-                },
-                end: {
-                    dateTime: _combineDateAndTime(event.details.date, event.details.endTime),
-                    timeZone: context.calendarContext.timezone,
-                },
             };
+
+            // Handle all-day vs timed events
+            if (event.details.isAllDay) {
+                // All-day event
+                googleEvent.start = {
+                    date: event.details.startDate,
+                    timeZone: context.calendarContext.timezone,
+                };
+
+                // For multi-day all-day events, adjust end date for Google's exclusive behavior
+                let endDate = event.details.endDate;
+                if (event.details.startDate !== event.details.endDate) {
+                    const adjustedEndDate = new Date(event.details.endDate);
+                    adjustedEndDate.setDate(adjustedEndDate.getDate() + 1);
+                    endDate = adjustedEndDate.toISOString().split('T')[0];
+                }
+
+                googleEvent.end = {
+                    date: endDate,
+                    timeZone: context.calendarContext.timezone,
+                };
+            } else {
+                // Timed event
+                googleEvent.start = {
+                    dateTime: _combineDateAndTime(event.details.startDate, event.details.startTime),
+                    timeZone: context.calendarContext.timezone,
+                };
+                googleEvent.end = {
+                    dateTime: _combineDateAndTime(event.details.startDate, event.details.endTime),
+                    timeZone: context.calendarContext.timezone,
+                };
+            }
 
             const response = await this.calendarClient.events.insert({
                 calendarId: context.calendarContext.calendarId,
                 resource: googleEvent,
             });
+
+            // Create appropriate response based on event type
+            let responseDetails;
+            if (event.details.isAllDay) {
+                responseDetails = {
+                    date: new Date(response.data.start.date),
+                    time: null, // All-day events don't have specific times
+                    description: response.data.description || ''
+                };
+            } else {
+                responseDetails = {
+                    date: new Date(response.data.start.dateTime),
+                    time: new Date(response.data.start.dateTime),
+                    description: response.data.description || ''
+                };
+            }
+
             return new DomainEventResult(
                 true,
                 new DomainEvent(
                     response.data.id,
                     response.data.summary,
-                    {
-                        date: new Date(response.data.start.dateTime),
-                        time: new Date(response.data.start.dateTime),
-                        description: response.data.description || ''
-                    }
+                    responseDetails
                 )
             );
         } catch (error) {
@@ -95,16 +132,57 @@ class GoogleCalendarInfrastructure extends ICalendarInfrastructure {
             });
 
             const events = response.data.items.map(evt => {
-                const start = evt.start.dateTime || evt.start.date;  // all-day safe
-                return new DomainEvent(
-                    evt.id,
-                    evt.summary,
-                    {
-                        date: new Date(start),
-                        time: new Date(start),
-                        description: evt.description
-                    }
-                );
+                // Determine if this is an all-day event
+                const isAllDay = !evt.start.dateTime && evt.start.date;
+
+                if (isAllDay) {
+                    // Handle all-day events
+                    const startDate = evt.start.date;
+                    const endDate = evt.end?.date || startDate; // Google Calendar end date is exclusive for all-day events
+
+                    // Create DomainEventDetails for all-day event
+                    const eventDetails = {
+                        title: evt.summary || 'Untitled Event',
+                        startDate: startDate,
+                        isAllDay: true,
+                        startTime: null,
+                        endTime: null,
+                        description: evt.description || '',
+                        endDate: endDate
+                    };
+
+                    return new DomainEvent(
+                        evt.id,
+                        evt.summary,
+                        eventDetails
+                    );
+                } else {
+                    // Handle timed events
+                    const startDateTime = new Date(evt.start.dateTime);
+                    const endDateTime = new Date(evt.end.dateTime);
+
+                    // Extract date and time components
+                    const startDate = startDateTime.toISOString().split('T')[0];
+                    const startTime = startDateTime.toTimeString().substring(0, 5); // HH:MM format
+                    const endTime = endDateTime.toTimeString().substring(0, 5); // HH:MM format
+
+                    // Create DomainEventDetails for timed event
+                    const eventDetails = {
+                        title: evt.summary || 'Untitled Event',
+                        startDate: startDate,
+                        isAllDay: false,
+                        startTime: startTime,
+                        endTime: endTime,
+                        description: evt.description || '',
+                        endDate: startDate // Same as startDate for single-day timed events
+                    };
+
+                    return new DomainEvent(
+                        evt.id,
+                        evt.summary,
+                        eventDetails
+                    );
+                }
             });
 
             return new DomainEventResult(true, events);
