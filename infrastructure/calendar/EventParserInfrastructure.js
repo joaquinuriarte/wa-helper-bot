@@ -3,6 +3,7 @@ const DomainEventDetails = require('../../domain/calendar/models/DomainEventDeta
 const DomainEvent = require('../../domain/calendar/models/DomainEvent');
 const DomainEventQuery = require('../../domain/calendar/models/DomainEventQuery');
 const { _combineDateAndTime, getCurrentDateInfo } = require('./utils/utils');
+const { DEFAULT_TITLE_DESCRIPTION_INSTRUCTIONS } = require('./utils/prompt_utils');
 const { z } = require('zod');
 
 /**
@@ -78,7 +79,7 @@ class EventParserInfrastructure extends IEventParserInfrastructure {
                     duration: z.number().optional().describe("Event duration in hours - REQUIRED when hasDuration is true"),
                     hasDuration: z.boolean().describe("Set to true if user explicitly mentioned duration (e.g., 'for 1 hour'), false if user provided time range (e.g., '10-2')"),
                     description: z.string().describe("Be thorough in the description. Include all the details of the event provided to you in a polished and clean way."),
-                    title: z.string().describe("Event Title. Should be a short title of the event.")
+                    title: z.string().describe("Short title of the event.")
                 }).optional().describe("Event data (only present if success is true)"),
                 error: z.string().optional().describe("Error message (only present if success is false)")
             });
@@ -86,6 +87,8 @@ class EventParserInfrastructure extends IEventParserInfrastructure {
             const timezoneInfo = timezone ? ` in timezone ${timezone}` : '';
             const prompt = `Parse the following text into timed event details. Extract date, start time, end time, duration, description, and title.
                 Current date${timezoneInfo} is ${currentDate}. Use this as reference for relative dates like "tomorrow" or "next week".
+                
+                ${DEFAULT_TITLE_DESCRIPTION_INSTRUCTIONS}
                 
                 TIME HANDLING RULES:
                 1. If user explicitly mentions duration (e.g., "for 1 hour", "2 hours", "30 minutes"):
@@ -183,6 +186,8 @@ class EventParserInfrastructure extends IEventParserInfrastructure {
             const timezoneInfo = timezone ? ` in timezone ${timezone}` : '';
             const prompt = `Parse the following text into all-day event details. Extract start date, end date, description, and title.
                 Current date${timezoneInfo} is ${currentDate}. Use this as reference for relative dates like "tomorrow" or "next week".
+                
+                ${DEFAULT_TITLE_DESCRIPTION_INSTRUCTIONS}
                 
                 ALL-DAY EVENT HANDLING RULES:
                 1. For single day events (e.g., "holiday tomorrow", "conference all day Friday"):

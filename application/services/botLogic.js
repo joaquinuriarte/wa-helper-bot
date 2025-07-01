@@ -22,15 +22,40 @@ class BotLogic extends IBot {
     }
 
     /**
+     * Adds sender information to the message body for context
+     * @param {Message} message - The message to modify
+     * @returns {Message} The modified message with sender info added
+     * @private
+     */
+    addSenderInfoToMessage(message) {
+        const senderInfo = `Sent by: ${message.senderName}`;
+        const modifiedBody = `${message.body}\n\n${senderInfo}`;
+
+        console.log('TESTING: modifiedBody: ', modifiedBody);
+
+        // Create a new message object with the modified body
+        return new Message(
+            message.chatId,
+            message.senderName,
+            modifiedBody,
+            message.isGroup,
+            message.chatName
+        );
+    }
+
+    /**
      * Handles an incoming message by routing it to the appropriate handler
      * @param {Message} message - The message to handle
      */
     async handleMessage(message) { // TODO: logic identifying it bot was mentioned should live here.
-        const handler = this.getHandlerForMessage(message);
+        // Add sender information to the message body for context
+        const messageWithSenderInfo = this.addSenderInfoToMessage(message);
+
+        const handler = this.getHandlerForMessage(messageWithSenderInfo);
         if (!handler) {
             return;
         }
-        await this.delegateToHandler(handler, message);
+        await this.delegateToHandler(handler, messageWithSenderInfo);
     }
 
     /**

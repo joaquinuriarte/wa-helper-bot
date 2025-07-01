@@ -138,7 +138,14 @@ class GoogleCalendarInfrastructure extends ICalendarInfrastructure {
                 if (isAllDay) {
                     // Handle all-day events
                     const startDate = evt.start.date;
-                    const endDate = evt.end?.date || startDate; // Google Calendar end date is exclusive for all-day events
+                    let endDate = evt.end?.date || startDate; // Google Calendar end date is exclusive for all-day events
+
+                    // Adjust end date: subtract one day to account for Google's exclusive end date behavior
+                    if (endDate !== startDate) {
+                        const adjustedEndDate = new Date(endDate);
+                        adjustedEndDate.setDate(adjustedEndDate.getDate() - 1);
+                        endDate = adjustedEndDate.toISOString().split('T')[0];
+                    }
 
                     // Create DomainEventDetails for all-day event
                     const eventDetails = {
