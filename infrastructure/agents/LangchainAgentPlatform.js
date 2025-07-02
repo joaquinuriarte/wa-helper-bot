@@ -228,7 +228,7 @@ class LangchainAgentPlatform extends IAgentExecutionPlatform {
                         // Normalise events for the LLM
                         const eventsForLLM = (result.data ?? []).map(evt => ({
                             id: evt.id,
-                            summary: evt.summary,
+                            title: evt.details.title,
                             startDate: evt.details.startDate,
                             endDate: evt.details.endDate,
                             startTime: evt.details.startTime,

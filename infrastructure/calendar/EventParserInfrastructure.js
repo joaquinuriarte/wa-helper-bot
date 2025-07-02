@@ -337,9 +337,8 @@ class EventParserInfrastructure extends IEventParserInfrastructure {
             const QuerySchema = z.object({
                 success: z.boolean().describe("Si el texto contiene información válida de consulta"),
                 data: z.object({
-                    timeMin: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/).describe("Hora de inicio para la consulta en formato ISO (YYYY-MM-DDTHH:MM:SS.sssZ)"),
-                    timeMax: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/).describe("Hora de fin para la consulta en formato ISO (YYYY-MM-DDTHH:MM:SS.sssZ)"),
-                    queryType: z.enum(['today', 'this_week', 'this_month', 'upcoming', 'weekend', 'custom']).describe("Tipo de consulta solicitada")
+                    timeMin: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/).describe("Hora de inicio para la consulta en formato ISO (YYYY-MM-DDTHH:MM:SS.sssZ), o vacio si no hay limite de tiempo"),
+                    timeMax: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/).describe("Hora de fin para la consulta en formato ISO (YYYY-MM-DDTHH:MM:SS.sssZ), o vacio si no hay limite de tiempo"),
                 }).optional().describe("Datos de consulta (solo presente si success es true)"),
                 error: z.string().optional().describe("Mensaje de error (solo presente si success es false)")
             });
@@ -349,6 +348,8 @@ class EventParserInfrastructure extends IEventParserInfrastructure {
                 La fecha actual${timezoneInfo} es ${currentDate} (${currentDayName}). Usa esto como referencia para fechas relativas como "hoy", "esta semana", "este fin de semana", etc.
                 
                 REGLAS PARA MANEJAR CONSULTAS:
+                - Uso primordial sera sin limite de tiempo. Si este es el caso, establece timeMin y timeMax como vacio.
+                    * (ej., "cuando llega alicia", "quien no esta aqui"): Establece timeMin="" y timeMax="" (strings vacíos) y marca success como true.
                 1. Para "hoy" o "eventos de hoy": Establece timeMin al inicio de hoy, timeMax al fin de hoy
                 2. Para "este fin de semana" o "eventos del fin de semana": 
                    - Si hoy es viernes o antes: Establece timeMin al inicio de hoy, timeMax al fin de este domingo
@@ -359,7 +360,6 @@ class EventParserInfrastructure extends IEventParserInfrastructure {
                 4. Para "este mes" o "eventos de este mes": Establece timeMin al inicio del mes actual, timeMax al fin del mes
                 5. Para "próximos" o "eventos futuros": Establece timeMin al inicio de hoy, timeMax a 6 meses desde hoy
                 6. Para rangos de fechas específicos (ej., "15-20 de junio"): Establece timeMin y timeMax al rango especificado
-                7. Para consultas sin límites de tiempo (ej., "cuando llega alicia", "quien no esta aqui"): Establece timeMin="" y timeMax="" (strings vacíos)
                 
                 FORMATO DE TIEMPO:
                 - Todos los tiempos deben estar en formato ISO: YYYY-MM-DDTHH:MM:SS.sssZ
@@ -369,12 +369,12 @@ class EventParserInfrastructure extends IEventParserInfrastructure {
                 - Para consultas sin límites de tiempo: usa timeMin="" y timeMax="" (strings vacíos)
                 
                 EJEMPLOS:
-                - "muéstrame los eventos de hoy" → timeMin="2025-06-24T00:00:00.000Z", timeMax="2025-06-24T23:59:59.999Z", queryType="today"
-                - "eventos este fin de semana" (si hoy es martes) → timeMin="2025-06-28T00:00:00.000Z", timeMax="2025-06-29T23:59:59.999Z", queryType="weekend"
-                - "reuniones del fin de semana" (si hoy es sábado) → timeMin="2025-06-28T00:00:00.000Z", timeMax="2025-06-29T23:59:59.999Z", queryType="weekend"
-                - "eventos esta semana" → timeMin="2025-06-22T00:00:00.000Z", timeMax="2025-06-28T23:59:59.999Z", queryType="this_week"
-                - "reuniones próximas" → timeMin="2025-06-24T00:00:00.000Z", timeMax="2025-12-24T23:59:59.999Z", queryType="upcoming"
-                - "cuando llega alicia" → timeMin="", timeMax="", queryType="custom"
+                - "muéstrame los eventos de hoy" → timeMin="2025-06-24T00:00:00.000Z", timeMax="2025-06-24T23:59:59.999Z"
+                - "eventos este fin de semana" (si hoy es martes) → timeMin="2025-06-28T00:00:00.000Z", timeMax="2025-06-29T23:59:59.999Z"
+                - "reuniones del fin de semana" (si hoy es sábado) → timeMin="2025-06-28T00:00:00.000Z", timeMax="2025-06-29T23:59:59.999Z"
+                - "eventos esta semana" → timeMin="2025-06-22T00:00:00.000Z", timeMax="2025-06-28T23:59:59.999Z"
+                - "reuniones próximas" → timeMin="2025-06-24T00:00:00.000Z", timeMax="2025-12-24T23:59:59.999Z"
+                - "cuando llega alicia" → timeMin="", timeMax=""
                 
                 Reglas:
                 - Si el texto contiene información válida de consulta, establece success como true
@@ -387,6 +387,8 @@ class EventParserInfrastructure extends IEventParserInfrastructure {
             // Use structured output with LangChain
             const structuredLLM = this.llm.withStructuredOutput(QuerySchema);
             const response = await structuredLLM.invoke(prompt);
+
+            console.log("response", response);
 
             // Check if the LLM indicated failure
             if (!response.success) {
