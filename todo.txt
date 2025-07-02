@@ -3,6 +3,8 @@
     - test these 
     - keep is extremely coupled, specific. 
 ------ "Add un event y despues preguntale cuando llega "nombre"? ---- 
+- ver que le devuelve tool
+- esq parser pa query tool no sabe que hora meterle ahi. hay que explicar como handle esto en sys prompt y en tool decir que si no hay solo pide todo. 
 4. ☑️ Add new handler con new calendar
     - solo chatid y calendar id a factory
 2. dale personalidad (script o famous quotes lines from a movie person and add to sys prompt). 

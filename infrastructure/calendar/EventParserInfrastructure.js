@@ -359,12 +359,14 @@ class EventParserInfrastructure extends IEventParserInfrastructure {
                 4. Para "este mes" o "eventos de este mes": Establece timeMin al inicio del mes actual, timeMax al fin del mes
                 5. Para "próximos" o "eventos futuros": Establece timeMin al inicio de hoy, timeMax a 6 meses desde hoy
                 6. Para rangos de fechas específicos (ej., "15-20 de junio"): Establece timeMin y timeMax al rango especificado
+                7. Para consultas sin límites de tiempo (ej., "cuando llega alicia", "quien no esta aqui"): Establece timeMin="" y timeMax="" (strings vacíos)
                 
                 FORMATO DE TIEMPO:
                 - Todos los tiempos deben estar en formato ISO: YYYY-MM-DDTHH:MM:SS.sssZ
                 - Usa zona horaria UTC para consistencia
                 - Para inicio del día: usa 00:00:00.000Z
                 - Para fin del día: usa 23:59:59.999Z
+                - Para consultas sin límites de tiempo: usa timeMin="" y timeMax="" (strings vacíos)
                 
                 EJEMPLOS:
                 - "muéstrame los eventos de hoy" → timeMin="2025-06-24T00:00:00.000Z", timeMax="2025-06-24T23:59:59.999Z", queryType="today"
@@ -372,6 +374,7 @@ class EventParserInfrastructure extends IEventParserInfrastructure {
                 - "reuniones del fin de semana" (si hoy es sábado) → timeMin="2025-06-28T00:00:00.000Z", timeMax="2025-06-29T23:59:59.999Z", queryType="weekend"
                 - "eventos esta semana" → timeMin="2025-06-22T00:00:00.000Z", timeMax="2025-06-28T23:59:59.999Z", queryType="this_week"
                 - "reuniones próximas" → timeMin="2025-06-24T00:00:00.000Z", timeMax="2025-12-24T23:59:59.999Z", queryType="upcoming"
+                - "cuando llega alicia" → timeMin="", timeMax="", queryType="custom"
                 
                 Reglas:
                 - Si el texto contiene información válida de consulta, establece success como true
