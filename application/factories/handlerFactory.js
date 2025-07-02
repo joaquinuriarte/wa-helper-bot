@@ -38,6 +38,9 @@ class HandlerFactory extends IHandlerFactory {
         if (chatId === "120363398524431988@g.us") {
             const calendarContext = new CalendarContext('8fb11090c390d3c9102c6be314996c37753b1568b77b0b31d9fc4db399b23f6a@group.calendar.google.com', 'America/Los_Angeles');
             return new TestHandler(this.interactionPort, this.AgentService, calendarContext);
+        } else if (chatId === "TODO: add chat id nickYnick") {
+            const calendarContext = new CalendarContext('TODO: add calendar id nickYnick', 'America/Los_Angeles');
+            return new NickyYNick(this.interactionPort, this.AgentService, calendarContext);
         }
         return "DNE";
     }

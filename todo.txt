@@ -2,10 +2,11 @@
     - añade ejemplos que tu sabes que van a usar. Crea easy way to keep adding as people use it
     - test these 
     - keep is extremely coupled, specific. 
+------ "Add un event y despues preguntale cuando llega "nombre"? ---- 
+4. ☑️ Add new handler con new calendar
+    - solo chatid y calendar id a factory
 2. dale personalidad (script o famous quotes lines from a movie person and add to sys prompt). 
 3. Test integration con calendar nuevo
-4. Add new handler con new calendar
-    - solo chatid y calendar id a factory
 5. Redeploy and release
 2. Pulir
 
