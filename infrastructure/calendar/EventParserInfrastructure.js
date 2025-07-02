@@ -71,53 +71,53 @@ class EventParserInfrastructure extends IEventParserInfrastructure {
 
             // Define the structured output schema for timed events
             const TimedEventSchema = z.object({
-                success: z.boolean().describe("Whether the text contains valid timed event information"),
+                success: z.boolean().describe("Si el texto contiene información válida de evento con hora"),
                 data: z.object({
-                    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe("Event date in YYYY-MM-DD format"),
-                    startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).describe("Event start time in HH:MM format (24-hour)"),
-                    endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).optional().describe("Event end time in HH:MM format (24-hour) - REQUIRED when hasDuration is false"),
-                    duration: z.number().optional().describe("Event duration in hours - REQUIRED when hasDuration is true"),
-                    hasDuration: z.boolean().describe("Set to true if user explicitly mentioned duration (e.g., 'for 1 hour'), false if user provided time range (e.g., '10-2')"),
-                    description: z.string().describe("Be thorough in the description. Include all the details of the event provided to you in a polished and clean way."),
-                    title: z.string().describe("Short title of the event.")
-                }).optional().describe("Event data (only present if success is true)"),
-                error: z.string().optional().describe("Error message (only present if success is false)")
+                    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe("Fecha del evento en formato YYYY-MM-DD"),
+                    startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).describe("Hora de inicio del evento en formato HH:MM (24 horas)"),
+                    endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).optional().describe("Hora de fin del evento en formato HH:MM (24 horas) - REQUERIDO cuando hasDuration es false"),
+                    duration: z.number().optional().describe("Duración del evento en horas - REQUERIDO cuando hasDuration es true"),
+                    hasDuration: z.boolean().describe("Establece como true si el usuario mencionó explícitamente la duración (ej., 'por 1 hora'), false si el usuario proporcionó un rango de tiempo (ej., '10-2')"),
+                    description: z.string().describe("Sé exhaustivo en la descripción. Incluye todos los detalles del evento proporcionado de manera pulida y clara."),
+                    title: z.string().describe("Título corto del evento.")
+                }).optional().describe("Datos del evento (solo presente si success es true)"),
+                error: z.string().optional().describe("Mensaje de error (solo presente si success es false)")
             });
 
-            const timezoneInfo = timezone ? ` in timezone ${timezone}` : '';
-            const prompt = `Parse the following text into timed event details. Extract date, start time, end time, duration, description, and title.
-                Current date${timezoneInfo} is ${currentDate}. Use this as reference for relative dates like "tomorrow" or "next week".
+            const timezoneInfo = timezone ? ` en zona horaria ${timezone}` : '';
+            const prompt = `Analiza el siguiente texto para extraer detalles de evento con hora. Extrae fecha, hora de inicio, hora de fin, duración, descripción y título.
+                La fecha actual${timezoneInfo} es ${currentDate}. Usa esto como referencia para fechas relativas como "mañana" o "la próxima semana".
                 
                 ${DEFAULT_TITLE_DESCRIPTION_INSTRUCTIONS}
                 
-                TIME HANDLING RULES:
-                1. If user explicitly mentions duration (e.g., "for 1 hour", "2 hours", "30 minutes"):
-                   - Set hasDuration = true
-                   - Set duration = the mentioned duration in hours
-                   - Set endTime = null (not needed)
+                REGLAS PARA MANEJAR HORAS:
+                1. Si el usuario menciona explícitamente la duración (ej., "por 1 hora", "2 horas", "30 minutos"):
+                   - Establece hasDuration = true
+                   - Establece duration = la duración mencionada en horas
+                   - Establece endTime = null (no necesario)
                 
-                2. If user provides time range (e.g., "10-2", "10am to 2pm", "between 3 and 5"):
-                   - Set hasDuration = false
-                   - Set startTime = start time in HH:MM format
-                   - Set endTime = end time in HH:MM format
-                   - Set duration = null (not needed)
+                2. Si el usuario proporciona un rango de tiempo (ej., "10-2", "10am a 2pm", "entre 3 y 5"):
+                   - Establece hasDuration = false
+                   - Establece startTime = hora de inicio en formato HH:MM
+                   - Establece endTime = hora de fin en formato HH:MM
+                   - Establece duration = null (no necesario)
                 
-                3. If user provides neither duration nor end time:
-                   - Set success = false
-                   - Provide error message asking for time details
+                3. Si el usuario no proporciona ni duración ni hora de fin:
+                   - Establece success = false
+                   - Proporciona mensaje de error pidiendo detalles de tiempo
                 
-                EXAMPLES:
-                - "meeting tomorrow at 2pm for 1 hour" → hasDuration=true, duration=1, endTime=null
-                - "meeting tomorrow 10-2" → hasDuration=false, endTime="14:00", duration=null
-                - "meeting tomorrow at 2pm" → success=false (no duration or end time)
+                EJEMPLOS:
+                - "reunión mañana a las 2pm por 1 hora" → hasDuration=true, duration=1, endTime=null
+                - "reunión mañana 10-2" → hasDuration=false, endTime="14:00", duration=null
+                - "reunión mañana a las 2pm" → success=false (sin duración ni hora de fin)
                 
-                Rules:
-                - If the text contains valid event information with sufficient time details, set success to true
-                - If the text is empty, unclear, or missing time details, set success to false and provide an error message
-                - Always return valid structured data matching the schema
-                - When calculating relative dates like "tomorrow", use the current date as reference
+                Reglas:
+                - Si el texto contiene información válida de evento con detalles de tiempo suficientes, establece success como true
+                - Si el texto está vacío, no es claro, o faltan detalles de tiempo, establece success como false y proporciona un mensaje de error
+                - Siempre devuelve datos estructurados válidos que coincidan con el esquema
+                - Al calcular fechas relativas como "mañana", usa la fecha actual como referencia
                 
-                Text to parse: "${text}"`;
+                Texto a analizar: "${text}"`;
 
             const structuredLLM = this.llm.withStructuredOutput(TimedEventSchema);
             const response = await structuredLLM.invoke(prompt);
@@ -172,52 +172,50 @@ class EventParserInfrastructure extends IEventParserInfrastructure {
 
             // Define the structured output schema for all-day events
             const AllDayEventSchema = z.object({
-                success: z.boolean().describe("Whether the text contains valid all-day event information"),
+                success: z.boolean().describe("Si el texto contiene información válida de evento de todo el día"),
                 data: z.object({
-                    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe("Event start date in YYYY-MM-DD format"),
-                    endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe("Event end date in YYYY-MM-DD format (defaults to startDate for single day events)"),
-                    description: z.string().describe("Be thorough in the description. Include all the details of the event provided to you in a polished and clean way."),
-                    title: z.string().describe("Event Title. Should be a short title of the event."),
-                    isMultiDay: z.boolean().describe("Whether this event spans multiple days")
-                }).optional().describe("Event data (only present if success is true)"),
-                error: z.string().optional().describe("Error message (only present if success is false)")
+                    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe("Fecha de inicio del evento en formato YYYY-MM-DD"),
+                    endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe("Fecha de fin del evento en formato YYYY-MM-DD (por defecto es startDate para eventos de un día)"),
+                    description: z.string().describe("Sé exhaustivo en la descripción. Incluye todos los detalles del evento proporcionado de manera pulida y clara."),
+                    title: z.string().describe("Título del evento."),
+                    isMultiDay: z.boolean().describe("Si este evento abarca múltiples días")
+                }).optional().describe("Datos del evento (solo presente si success es true)"),
+                error: z.string().optional().describe("Mensaje de error (solo presente si success es false)")
             });
 
-            const timezoneInfo = timezone ? ` in timezone ${timezone}` : '';
-            const prompt = `Parse the following text into all-day event details. Extract start date, end date, description, and title.
-                Current date${timezoneInfo} is ${currentDate}. Use this as reference for relative dates like "tomorrow" or "next week".
+            const timezoneInfo = timezone ? ` en zona horaria ${timezone}` : '';
+            const prompt = `Analiza el siguiente texto para extraer detalles de evento de todo el día. Extrae fecha de inicio, fecha de fin, descripción y título.
+                La fecha actual${timezoneInfo} es ${currentDate}. Usa esto como referencia para fechas relativas como "mañana" o "la próxima semana".
                 
                 ${DEFAULT_TITLE_DESCRIPTION_INSTRUCTIONS}
                 
-                ALL-DAY EVENT HANDLING RULES:
-                1. For single day events (e.g., "holiday tomorrow", "conference all day Friday"):
-                   - Set startDate = the event date
-                   - Set endDate = same as startDate
-                   - Set isMultiDay = false
+                REGLAS PARA MANEJAR EVENTOS DE TODO EL DÍA:
+                1. Para eventos de un día (ej., "vacaciones mañana", "conferencia todo el día viernes"):
+                   - Establece startDate = la fecha del evento
+                   - Establece endDate = igual que startDate
+                   - Establece isMultiDay = false
                 
-                2. For multi-day events (e.g., "vacation next week", "conference June 15-17"):
-                   - Set startDate = first day of the event
-                   - Set endDate = last day of the event
-                   - Set isMultiDay = true
+                2. Para eventos de múltiples días (ej., "me voy el proximo weekend", "estoy fuera todo el weekend que viene"):
+                   - Establece startDate = primer día del evento
+                   - Establece endDate = último día del evento
+                   - Establece isMultiDay = true
                 
-                3. For events with relative dates:
-                   - "next week" = 7 days from current date
-                   - "this weekend" = Friday to Sunday of current week
-                   - "next month" = first day to last day of next month
+                3. Para eventos con fechas relativas:
+                   - "la próxima semana" = 7 días desde la fecha actual
+                   - "este fin de semana" = viernes a domingo de la semana actual
+                   - "el próximo mes" = primer día al último día del próximo mes
                 
-                EXAMPLES:
-                - "vacation tomorrow" → (Assuming today is 2025-06-24) startDate="2025-06-25", endDate="2025-06-25", isMultiDay=false
-                - "conference all day Friday" → (Assuming today is 2025-06-24, tuesday) startDate="2025-06-27", endDate="2025-06-27", isMultiDay=false
-                - "vacation next weekend" → (Assuming today is 2025-06-24) startDate="2025-07-04", endDate="2025-07-06", isMultiDay=true
-                - "conference June 15-17" → startDate="2025-06-15", endDate="2025-06-17", isMultiDay=true
+                EJEMPLOS:
+                - "Me voy el proximo weekend" → (Asumiendo que hoy es martes, 2025-06-24) startDate="2025-06-27", endDate="2025-06-29", isMultiDay=true, title="Viaje", description="Viaje durante el fin de semana del 27-29 de junio"
+                - "Estoy fuera el weekend de agosto 1" → startDate="2025-08-01", endDate="2025-08-03", isMultiDay=true, title="Viaje", description="Viaje durante el fin de semana del 1-3 de agosto"
                 
-                Rules:
-                - If the text contains valid all-day event information, set success to true
-                - If the text is empty, unclear, or missing date information, set success to false and provide an error message
-                - Always return valid structured data matching the schema
-                - When calculating relative dates, use the current date as reference
+                Reglas:
+                - Si el texto contiene información válida de evento de todo el día, establece success como true
+                - Si el texto está vacío, no es claro, o falta información de fecha, establece success como false y proporciona un mensaje de error
+                - Siempre devuelve datos estructurados válidos que coincidan con el esquema
+                - Al calcular fechas relativas, usa la fecha actual como referencia
                 
-                Text to parse: "${text}"`;
+                Texto a analizar: "${text}"`;
 
             const structuredLLM = this.llm.withStructuredOutput(AllDayEventSchema);
             const response = await structuredLLM.invoke(prompt);
@@ -337,51 +335,51 @@ class EventParserInfrastructure extends IEventParserInfrastructure {
 
             // Define the structured output schema using Zod
             const QuerySchema = z.object({
-                success: z.boolean().describe("Whether the text contains valid query information"),
+                success: z.boolean().describe("Si el texto contiene información válida de consulta"),
                 data: z.object({
-                    timeMin: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/).describe("Start time for query in ISO format (YYYY-MM-DDTHH:MM:SS.sssZ)"),
-                    timeMax: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/).describe("End time for query in ISO format (YYYY-MM-DDTHH:MM:SS.sssZ)"),
-                    queryType: z.enum(['today', 'this_week', 'this_month', 'upcoming', 'weekend', 'custom']).describe("Type of query being requested")
-                }).optional().describe("Query data (only present if success is true)"),
-                error: z.string().optional().describe("Error message (only present if success is false)")
+                    timeMin: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/).describe("Hora de inicio para la consulta en formato ISO (YYYY-MM-DDTHH:MM:SS.sssZ)"),
+                    timeMax: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/).describe("Hora de fin para la consulta en formato ISO (YYYY-MM-DDTHH:MM:SS.sssZ)"),
+                    queryType: z.enum(['today', 'this_week', 'this_month', 'upcoming', 'weekend', 'custom']).describe("Tipo de consulta solicitada")
+                }).optional().describe("Datos de consulta (solo presente si success es true)"),
+                error: z.string().optional().describe("Mensaje de error (solo presente si success es false)")
             });
 
-            const timezoneInfo = timezone ? ` in timezone ${timezone}` : '';
-            const prompt = `Parse the following text into calendar query parameters. Extract time range for querying events.
-                Current date${timezoneInfo} is ${currentDate} (${currentDayName}). Use this as reference for relative dates like "today", "this week", "this weekend", etc.
+            const timezoneInfo = timezone ? ` en zona horaria ${timezone}` : '';
+            const prompt = `Analiza el siguiente texto para extraer parámetros de consulta de calendario. Extrae el rango de tiempo para consultar eventos.
+                La fecha actual${timezoneInfo} es ${currentDate} (${currentDayName}). Usa esto como referencia para fechas relativas como "hoy", "esta semana", "este fin de semana", etc.
                 
-                QUERY HANDLING RULES:
-                1. For "today" or "today's events": Set timeMin to start of today, timeMax to end of today
-                2. For "this weekend" or "weekend events": 
-                   - If today is Friday or earlier: Set timeMin to start of today, timeMax to end of this Sunday
-                   - If today is Saturday: Set timeMin to start of today, timeMax to end of tomorrow (Sunday)
-                   - If today is Sunday: Set timeMin to start of today, timeMax to end of today
-                   - If today is Monday-Thursday: Set timeMin to start of this Friday, timeMax to end of this Sunday
-                3. For "this week" or "this week's events": Set timeMin to start of current week (Sunday), timeMax to end of week (Saturday)
-                4. For "this month" or "this month's events": Set timeMin to start of current month, timeMax to end of month
-                5. For "upcoming" or "future events": Set timeMin to start of today, timeMax to 6 months from today
-                6. For specific date ranges (e.g., "June 15-20"): Set timeMin and timeMax to the specified range
+                REGLAS PARA MANEJAR CONSULTAS:
+                1. Para "hoy" o "eventos de hoy": Establece timeMin al inicio de hoy, timeMax al fin de hoy
+                2. Para "este fin de semana" o "eventos del fin de semana": 
+                   - Si hoy es viernes o antes: Establece timeMin al inicio de hoy, timeMax al fin de este domingo
+                   - Si hoy es sábado: Establece timeMin al inicio de hoy, timeMax al fin de mañana (domingo)
+                   - Si hoy es domingo: Establece timeMin al inicio de hoy, timeMax al fin de hoy
+                   - Si hoy es lunes-jueves: Establece timeMin al inicio de este viernes, timeMax al fin de este domingo
+                3. Para "esta semana" o "eventos de esta semana": Establece timeMin al inicio de la semana actual (lunes), timeMax al fin de la semana (domingo)
+                4. Para "este mes" o "eventos de este mes": Establece timeMin al inicio del mes actual, timeMax al fin del mes
+                5. Para "próximos" o "eventos futuros": Establece timeMin al inicio de hoy, timeMax a 6 meses desde hoy
+                6. Para rangos de fechas específicos (ej., "15-20 de junio"): Establece timeMin y timeMax al rango especificado
                 
-                TIME FORMAT:
-                - All times must be in ISO format: YYYY-MM-DDTHH:MM:SS.sssZ
-                - Use UTC timezone for consistency
-                - For start of day: use 00:00:00.000Z
-                - For end of day: use 23:59:59.999Z
+                FORMATO DE TIEMPO:
+                - Todos los tiempos deben estar en formato ISO: YYYY-MM-DDTHH:MM:SS.sssZ
+                - Usa zona horaria UTC para consistencia
+                - Para inicio del día: usa 00:00:00.000Z
+                - Para fin del día: usa 23:59:59.999Z
                 
-                EXAMPLES:
-                - "show me today's events" → timeMin="2025-06-24T00:00:00.000Z", timeMax="2025-06-24T23:59:59.999Z", queryType="today"
-                - "events this weekend" (if today is Tuesday) → timeMin="2025-06-28T00:00:00.000Z", timeMax="2025-06-29T23:59:59.999Z", queryType="weekend"
-                - "weekend meetings" (if today is Saturday) → timeMin="2025-06-28T00:00:00.000Z", timeMax="2025-06-29T23:59:59.999Z", queryType="weekend"
-                - "events this week" → timeMin="2025-06-22T00:00:00.000Z", timeMax="2025-06-28T23:59:59.999Z", queryType="this_week"
-                - "upcoming meetings" → timeMin="2025-06-24T00:00:00.000Z", timeMax="2025-12-24T23:59:59.999Z", queryType="upcoming"
+                EJEMPLOS:
+                - "muéstrame los eventos de hoy" → timeMin="2025-06-24T00:00:00.000Z", timeMax="2025-06-24T23:59:59.999Z", queryType="today"
+                - "eventos este fin de semana" (si hoy es martes) → timeMin="2025-06-28T00:00:00.000Z", timeMax="2025-06-29T23:59:59.999Z", queryType="weekend"
+                - "reuniones del fin de semana" (si hoy es sábado) → timeMin="2025-06-28T00:00:00.000Z", timeMax="2025-06-29T23:59:59.999Z", queryType="weekend"
+                - "eventos esta semana" → timeMin="2025-06-22T00:00:00.000Z", timeMax="2025-06-28T23:59:59.999Z", queryType="this_week"
+                - "reuniones próximas" → timeMin="2025-06-24T00:00:00.000Z", timeMax="2025-12-24T23:59:59.999Z", queryType="upcoming"
                 
-                Rules:
-                - If the text contains valid query information, set success to true
-                - If the text is empty, unclear, or doesn't contain query information, set success to false and provide an error message
-                - Always return valid structured data matching the schema
-                - When calculating relative dates, use the current date and day as reference
+                Reglas:
+                - Si el texto contiene información válida de consulta, establece success como true
+                - Si el texto está vacío, no es claro, o no contiene información de consulta, establece success como false y proporciona un mensaje de error
+                - Siempre devuelve datos estructurados válidos que coincidan con el esquema
+                - Al calcular fechas relativas, usa la fecha y día actual como referencia
                 
-                Text to parse: "${text}"`;
+                Texto a analizar: "${text}"`;
 
             // Use structured output with LangChain
             const structuredLLM = this.llm.withStructuredOutput(QuerySchema);

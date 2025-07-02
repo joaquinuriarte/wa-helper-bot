@@ -74,11 +74,21 @@ class LangchainAgentPlatform extends IAgentExecutionPlatform {
         if (this.eventParserService && this.calendarService) {
             // Combined Event Parser + Calendar Create Event Tool
             const createEventTool = new DynamicTool({
-                name: 'create_calendar_event',
-                description: `Use this tool to create calendar events from natural language text.
-                    Input should be a string containing event details in natural language.
-                    The tool will parse the text and create the calendar event automatically.
-                    Use this tool for creating new calendar events from natural language input.`,
+                name: 'crear_evento_en_calendario',
+                description: `Usa esta herramienta para crear eventos de calendario a partir de texto en lenguaje natural.
+
+                    CUANDO USAR ESTA HERRAMIENTA:
+                    - Cuando el usario indirectamente se refiere a un evento de el u otro miembro del grupo, como:
+                        * "Me voy de viaje este weekend"
+                        * "La semana que viene no voy a estar en SF"
+                        * "Me voy a PR/Colombia/Mexico el próximo weekend"
+                        * "No voy a estar aquí este weekend"
+                        * "Juan no va a estar durante este fin de semana
+                    - Cuando el usuario explicitamente pide agregar un evento al calendario, como:
+                        * "Agrega un viaje el próximo fin de semana a mi calendario"
+                        * "Agrega un viaje a España el próximo fin de semana a mi calendario"
+                    
+                    La herramienta analizará el texto y creará el evento de calendario automáticamente.`,
                 func: async (input) => {
                     console.log("🛠️  [TOOL] create_calendar_event called");
                     console.log("   📝 Input:", input);
@@ -161,28 +171,26 @@ class LangchainAgentPlatform extends IAgentExecutionPlatform {
 
             // Combined Event Query Parser + Calendar Get Events Tool
             const fetchEventsTool = new DynamicTool({
-                name: 'fetch_calendar_events',
-                description: `Use this tool to fetch and retrieve calendar events from natural language queries.
+                name: 'obtener_eventos_de_calendario',
+                description: `Usa esta herramienta para obtener y recuperar eventos de calendario a partir de consultas en lenguaje natural.
                     
-                    WHEN TO USE THIS TOOL:
-                    - When user asks about existing events: "what events do I have today?", "show me my calendar", "what's on my schedule"
-                    - When user asks about upcoming events: "what upcoming events do I have?", "what's coming up?", "future events"
-                    - When user asks about specific time periods: "this weekend's events", "events this week", "meetings this month"
-                    - When user asks about availability: "when am I free?", "what's my availability?", "when do I have time?"
-                    - When user asks about specific people or events: "when does Juan come back?", "when is the team meeting?"
+                    CUÁNDO USAR ESTA HERRAMIENTA:
+                    - Cuando el usuario explicitamente pide un evento del calendario, como:
+                        * "Que eventos estan en el calendario para el proximo weekend?"
+                        * "Que eventos hay esta semana en el calendario?"
+                    - Pero mayormente el usuario va a hacer preguntas indirectas, como: 
+                        * "Quien no esta aqui este weekend?"
+                        * "Cuando llega ricky?"
+                        * "Quien esta aqui la semana del 7 de julio?"
+                        * "Juan regreso de su viaje?"
                     
-                    INPUT EXAMPLES:
-                    - "what upcoming events do i have?"
-                    - "show me today's calendar"
-                    - "what's on my schedule this weekend?"
-                    - "when do I have meetings this week?"
-                    - "what events are coming up?"
-                    - "my calendar for tomorrow"
-                    - "when am I free next week?"
+                    - Cuando detectes estas declaraciones indirectas de calendario, usa proactivamente las herramientas de calendario para agregar el evento
+                    - No esperes comandos explícitos - si alguien menciona planes, viajes, reuniones, citas o eventos, usa las herramientas de calendario para cumplir la solicitud. No es necesario pedir confirmación.
+                    - Siempre reporta al usuario que el evento fue agregado u obtenido con los detalles.
                     
-                    The tool will parse the natural language query, determine the appropriate time range, and return a JSON list of all matching calendar events with their details (id, summary, start time, end time, all-day status, description).
+                    La herramienta analizará la consulta en lenguaje natural, determinará el rango de tiempo apropiado y devolverá una lista JSON de todos los eventos de calendario coincidentes con sus detalles (id, resumen, hora de inicio, hora de fin, estado de todo el día, descripción).
                     
-                    ALWAYS use this tool when the user is asking about existing or upcoming calendar events, availability, or schedule information.`,
+                    SIEMPRE usa esta herramienta cuando el usuario esté preguntando sobre vuelos, regresos de los miembros del grupo, eventos de calendario existentes o próximos, disponibilidad o información de agenda.`,
                 func: async (input) => {
                     console.log("🛠️  [TOOL] fetch_calendar_events called");
                     console.log("   📝 Input:", input);
