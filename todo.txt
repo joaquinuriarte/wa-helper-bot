@@ -1,10 +1,11 @@
-1. Change to spanish, ojo a prompts
+1. ✅ Change to spanish, ojo a prompts
     - añade ejemplos que tu sabes que van a usar. Crea easy way to keep adding as people use it
-    - test these
+    - test these 
     - keep is extremely coupled, specific. 
 2. dale personalidad (script o famous quotes lines from a movie person and add to sys prompt). 
 3. Test integration con calendar nuevo
 4. Add new handler con new calendar
+    - solo chatid y calendar id a factory
 5. Redeploy and release
 2. Pulir
 
