@@ -42,7 +42,6 @@ class WhatsappDriver extends IInteractionPort {
     setupListeners() {
         // message is triggered for only incoming messages
         this.client.on('message', async (msg) => {
-            console.log('Message received: ', msg.body);
             try {
                 const msgMentions = await msg.getMentions();
                 const isBotMentioned = msgMentions.some(mention => mention.id.user === this.botId);

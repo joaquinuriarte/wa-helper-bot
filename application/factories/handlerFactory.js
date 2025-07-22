@@ -8,6 +8,7 @@ const CalendarContext = require('../../domain/calendar/models/CalendarContext');
 // Available handlers 
 const TestHandler = require('../services/handlers/chatHandlers/testHandler');
 const NickyYNick = require('../services/handlers/chatHandlers/nickyYnick');
+const FratelleioBolicine = require('../services/handlers/chatHandlers/fratelleioBolicine');
 
 /**
  * Factory class for creating chat and user handlers
@@ -35,13 +36,15 @@ class HandlerFactory extends IHandlerFactory {
      * @returns {ChatHandler | "DNE"}
      */
     createChatHandler(chatId) {
-        // This id corresponds to the group chat id of the test group i have with Irene
-        if (chatId === "TODO, swap below here and below with nickYnick id") {
+        if (chatId === "120363398524431988@g.us") { // Test group with Irene
             const calendarContext = new CalendarContext('8fb11090c390d3c9102c6be314996c37753b1568b77b0b31d9fc4db399b23f6a@group.calendar.google.com', 'America/Los_Angeles');
             return new TestHandler(this.interactionPort, this.AgentService, calendarContext);
-        } else if (chatId === "120363398524431988@g.us") {
+        } else if (chatId === "120363076080768276@g.us") { // NickYnick group
             const calendarContext = new CalendarContext('2f272e0ecef6b3941f77b6f9bcf8347672d5d56a800944434e06857f95d51584@group.calendar.google.com', 'America/Los_Angeles');
             return new NickyYNick(this.interactionPort, this.AgentService, calendarContext);
+        } else if (chatId === "120363370056446016@g.us") { // Fratelleio Bollicine
+            const calendarContext = new CalendarContext('8fb11090c390d3c9102c6be314996c37753b1568b77b0b31d9fc4db399b23f6a@group.calendar.google.com', 'America/Los_Angeles');
+            return new FratelleioBolicine(this.interactionPort, this.AgentService, calendarContext);
         }
         return "DNE";
     }

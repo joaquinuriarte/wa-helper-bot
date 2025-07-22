@@ -1,3 +1,6 @@
+- Issue with not able to create handler without calendar... toca hacer agent infra per handler
+
+
 1. ✅ Change to spanish, ojo a prompts
     - añade ejemplos que tu sabes que van a usar. Crea easy way to keep adding as people use it
     - test these 

@@ -26,8 +26,7 @@ class AgentService {
      */
     async handleUserQuery(agentRequest) {
         try {
-            const agentResponse = await this.agentPlatform.processRequest(agentRequest);
-            return agentResponse;
+            return await this.agentPlatform.processRequest(agentRequest);
         } catch (error) {
             console.error('Error in AgentService while handling user query:', error);
             // Return a structured error response

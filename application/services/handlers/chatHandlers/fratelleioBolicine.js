@@ -6,9 +6,9 @@ const CalendarContext = require('../../../../domain/calendar/models/CalendarCont
 const AgentRequest = require('../../../../domain/agent/models/AgentRequest');
 const AgentResponse = require('../../../../domain/agent/models/AgentResponse');
 /**
- * NickyYNick is a chat handler for the NickyYNick group.
+ * FratelleioBolicine is a chat handler for the Fratelleio Bollicine group.
  */
-class NickyYNick extends ChatHandler {
+class FratelleioBolicine extends ChatHandler {
     /**
      * @param {IInteractionPort} interactionPort - The port for sending messages
      * @param {AgentService} AgentService - The agent service for handling user queries
@@ -93,4 +93,4 @@ class NickyYNick extends ChatHandler {
     }
 }
 
-module.exports = NickyYNick;
+module.exports = FratelleioBolicine;
