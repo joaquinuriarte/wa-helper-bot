@@ -5,3 +5,4 @@ npm-debug.log
 !env/.gitkeep
 env/*.json
 .wwebjs_cache/
+todo.txt
