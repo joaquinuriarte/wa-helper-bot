@@ -10,7 +10,11 @@ class WhatsappSessionManager {
      * @returns {Promise<import('whatsapp-web.js').Client>} The configured WhatsApp client
      */
     static async createClient() {
-        const client = new Client();
+        const client = new Client({
+            puppeteer: {
+                args: ['--no-sandbox', '--disable-setuid-sandbox']
+            }
+        });
 
         // Only handle session-related events
         client.on('qr', (qr) => {
