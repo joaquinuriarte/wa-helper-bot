@@ -12,7 +12,13 @@ class WhatsappSessionManager {
     static async createClient() {
         const client = new Client({
             puppeteer: {
-                args: ['--no-sandbox', '--disable-setuid-sandbox']
+                args: [
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-extensions',
+                    '--disable-gpu'
+                  ]
             }
         });
 
