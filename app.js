@@ -25,18 +25,44 @@ const systemPrompt = require('./infrastructure/agents/prompts/systemPrompt');
 // ============= MEMORY MONITORING =============
 function logMemoryUsage(label = 'Memory Usage') {
     const memUsage = process.memoryUsage();
+    const rssMB = Math.round(memUsage.rss / 1024 / 1024);
+    
     console.log(`📊 ${label}:`, {
-        rss: `${Math.round(memUsage.rss / 1024 / 1024)}MB`,
+        rss: `${rssMB}MB`,
         heapTotal: `${Math.round(memUsage.heapTotal / 1024 / 1024)}MB`,
         heapUsed: `${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`,
         external: `${Math.round(memUsage.external / 1024 / 1024)}MB`
     });
+    
+    // Warn if approaching Render's limit
+    if (rssMB > 400) {
+        console.log(`⚠️  WARNING: Memory usage is high (${rssMB}MB). Render limit is 512MB.`);
+    }
+    if (rssMB > 450) {
+        console.log(`🚨 CRITICAL: Memory usage is very high (${rssMB}MB). Consider restarting.`);
+    }
 }
 
-// Log memory every 30 seconds
+// Log memory every 10 seconds (more frequent)
 setInterval(() => {
     logMemoryUsage('Periodic Memory Check');
-}, 30000);
+}, 10000);
+
+// Log memory every 5 seconds during high activity
+let highActivityInterval;
+function startHighActivityMonitoring() {
+    if (highActivityInterval) clearInterval(highActivityInterval);
+    highActivityInterval = setInterval(() => {
+        logMemoryUsage('High Activity Memory Check');
+    }, 5000);
+}
+
+function stopHighActivityMonitoring() {
+    if (highActivityInterval) {
+        clearInterval(highActivityInterval);
+        highActivityInterval = null;
+    }
+}
 
 // ============= CONFIGURATION =============
 let credentials;

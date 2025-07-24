@@ -57,6 +57,7 @@ class WhatsappDriver extends IInteractionPort {
                     // Log memory before processing
                     const memUsage = process.memoryUsage();
                     console.log(`📊 Memory before message processing:`, {
+                        rss: `${Math.round(memUsage.rss / 1024 / 1024)}MB`,
                         heapUsed: `${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`
                     });
                     
@@ -82,6 +83,7 @@ class WhatsappDriver extends IInteractionPort {
                     // Log memory after processing
                     const memUsageAfter = process.memoryUsage();
                     console.log(`📊 Memory after message processing:`, {
+                        rss: `${Math.round(memUsageAfter.rss / 1024 / 1024)}MB`,
                         heapUsed: `${Math.round(memUsageAfter.heapUsed / 1024 / 1024)}MB`,
                         difference: `${Math.round((memUsageAfter.heapUsed - memUsage.heapUsed) / 1024 / 1024)}MB`
                     });
