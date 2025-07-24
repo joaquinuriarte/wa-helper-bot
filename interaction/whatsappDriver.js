@@ -42,11 +42,24 @@ class WhatsappDriver extends IInteractionPort {
     setupListeners() {
         // message is triggered for only incoming messages
         this.client.on('message', async (msg) => {
+            // Filter out status broadcasts and other non-chat messages
+            if (msg.from === 'status@broadcast' || msg.isStatus) {
+                return; // Skip status messages
+            }
+            
             try {
                 const msgMentions = await msg.getMentions();
                 const isBotMentioned = msgMentions.some(mention => mention.id.user === this.botId);
 
                 if (isBotMentioned) {
+                    console.log('Bot mentioned in message: ', msg.body);
+                    
+                    // Log memory before processing
+                    const memUsage = process.memoryUsage();
+                    console.log(`📊 Memory before message processing:`, {
+                        heapUsed: `${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`
+                    });
+                    
                     const chat = await msg.getChat();
                     const chatContact = await chat.getContact();
                     const msgContact = await msg.getContact();
@@ -65,6 +78,13 @@ class WhatsappDriver extends IInteractionPort {
                     }
                     await this.bot.handleMessage(message);
                     console.log('Message handled successfully');
+                    
+                    // Log memory after processing
+                    const memUsageAfter = process.memoryUsage();
+                    console.log(`📊 Memory after message processing:`, {
+                        heapUsed: `${Math.round(memUsageAfter.heapUsed / 1024 / 1024)}MB`,
+                        difference: `${Math.round((memUsageAfter.heapUsed - memUsage.heapUsed) / 1024 / 1024)}MB`
+                    });
                 }
             } catch (error) {
                 console.error('Error handling message:', error);

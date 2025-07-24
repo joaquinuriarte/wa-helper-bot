@@ -22,6 +22,21 @@ const LLMSessionManager = require('./infrastructure/calendar/sessionManagers/LLM
 const LangchainAgentPlatform = require('./infrastructure/agents/LangchainAgentPlatform');
 const systemPrompt = require('./infrastructure/agents/prompts/systemPrompt');
 
+// ============= MEMORY MONITORING =============
+function logMemoryUsage(label = 'Memory Usage') {
+    const memUsage = process.memoryUsage();
+    console.log(`📊 ${label}:`, {
+        rss: `${Math.round(memUsage.rss / 1024 / 1024)}MB`,
+        heapTotal: `${Math.round(memUsage.heapTotal / 1024 / 1024)}MB`,
+        heapUsed: `${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`,
+        external: `${Math.round(memUsage.external / 1024 / 1024)}MB`
+    });
+}
+
+// Log memory every 30 seconds
+setInterval(() => {
+    logMemoryUsage('Periodic Memory Check');
+}, 30000);
 
 // ============= CONFIGURATION =============
 let credentials;
@@ -70,6 +85,8 @@ process.on('SIGTERM', async () => {
 
 // ============= MAIN FUNCTION =============
 async function main() {
+    logMemoryUsage('Start of main()');
+    
     // ============= INFRASTRUCTURE LAYER SETUP =============
     // Create and configure calendar infrastructure
     const calendarClient = GoogleCalendarSessionManager.createClient(credentials);
@@ -78,6 +95,7 @@ async function main() {
     const llm_event_parser = await LLMSessionManager.createLLM(apiKey);
     const eventParserInfra = new EventParserInfrastructure(llm_event_parser);
 
+    logMemoryUsage('After infrastructure setup');
 
     // ============= DOMAIN LAYER SETUP =============
     const calendarService = new CalendarService(calendarInfra);
@@ -87,6 +105,8 @@ async function main() {
     const langchainAgentPlatform = new LangchainAgentPlatform([calendarService, eventParserService], apiKey, systemPrompt);
     await langchainAgentPlatform.createAgent();
 
+    logMemoryUsage('After agent creation');
+
     // ============= AGENT DOMAIN LAYER SETUP =============
     const agentService = new AgentService(langchainAgentPlatform);
 
@@ -94,6 +114,8 @@ async function main() {
     // Create and configure WhatsApp client
     const whatsappClient = await WhatsappSessionManager.createClient();
     const whatsappDriver = new WhatsappDriver(whatsappClient, BOT_ID);
+
+    logMemoryUsage('After WhatsApp client creation');
 
     // ============= APPLICATION LAYER SETUP =============
     // Create and configure application services
@@ -106,6 +128,8 @@ async function main() {
     // ============= INITIALIZATION =============
     // Initialize WhatsApp client
     await WhatsappSessionManager.initializeClient(whatsappClient);
+    
+    logMemoryUsage('After initialization complete');
 }
 
 // Run the main function
